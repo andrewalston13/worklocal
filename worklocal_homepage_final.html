@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WorkLocal — Find Your Perfect Place to Work</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ============================================================
+       WORKLOCAL — HOMEPAGE STYLES
+       ============================================================
+
+       FONTS:
+         'Chicle'   → Logo only (nav + footer)
+         'Coiny'    → All headings, numbers, scores
+         'DM Sans'  → All body text, buttons, tags
+
+       COLORS — change these to update the whole site:
+         --green-main:    #93CF79   (WorkLocal brand green)
+         --green-dark:    #3A6B28   (dark green text)
+         --green-mid:     #4A7A35   (mid green)
+         --green-light:   #D5EFCA   (light green bg)
+         --green-border:  #AAD990   (green borders)
+
+         --purple-bg:     #F2EDFF   (perks section bg)
+         --purple-dark:   #2E1A60   (perks dark text)
+         --purple-mid:    #7050C0   (perks accent)
+         --purple-border: #DDD5FF   (perks borders)
+         --purple-btn:    #C0A8FF   (perks redeem border)
+
+         --yellow-bg:     #FDFAED   (testimonials section bg)
+         --yellow-border: #EDE5AA   (testimonials borders)
+         --yellow-dark:   #3A3000   (testimonials heading)
+         --yellow-label:  #7A6A00   (testimonials eyebrow)
+
+         --blue-bg:       #EAF2FF   (CTA section bg)
+         --blue-border:   #C0D5F5   (CTA border)
+         --blue-dark:     #152A60   (CTA heading)
+         --blue-mid:      #4A60AA   (CTA text)
+         --blue-btn:      #3A6AE0   (CTA button)
+         --blue-ghost:    #A0C0FF   (CTA ghost border)
+
+    ============================================================ */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: #222;
+      background: #fff;
+    }
+
+    /* ============================================================
+       NAV
+    ============================================================ */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 32px;
+      background: #fff;
+      border-bottom: 1px solid #E8E8E8;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-logo {
+      font-family: 'Chicle', cursive; /* FONT: logo */
+      font-size: 28px;
+      letter-spacing: 1px;
+      text-decoration: none;
+    }
+    .nav-logo .work  { color: #3A6B28; } /* COLOR: "Work" in logo */
+    .nav-logo .local { color: #93CF79; } /* COLOR: "Local" in logo */
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .nav-link {
+      font-size: 14px;
+      color: #777;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-link:hover { color: #222; }
+
+    .nav-cta {
+      background: #93CF79; /* COLOR: nav button */
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 22px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: opacity 0.15s;
+    }
+    .nav-cta:hover { opacity: 0.88; }
+
+    /* ============================================================
+       HERO — pastel green background
+    ============================================================ */
+    .hero {
+      background: #EDF7E5; /* COLOR: hero background */
+      padding: 64px 32px 52px;
+      border-bottom: 1px solid #D0EBC0; /* COLOR: hero bottom border */
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #D5EFCA; /* COLOR: eyebrow pill bg */
+      border: 1px solid #AAD990; /* COLOR: eyebrow pill border */
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #3A6B28; /* COLOR: eyebrow text */
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+    }
+
+    .hero-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #93CF79; /* COLOR: eyebrow dot */
+      flex-shrink: 0;
+    }
+
+    .hero h1 {
+      font-family: 'Coiny', cursive; /* FONT: hero heading */
+      font-size: 72px;
+      color: #2A4A1A; /* COLOR: hero heading */
+      line-height: 1.05;
+      margin-bottom: 18px;
+      max-width: 640px;
+      letter-spacing: 0.5px;
+    }
+
+    .hero h1 .hl { color: #4A7A35; } /* COLOR: hero heading highlight */
+
+    .hero-sub {
+      font-size: 17px;
+      color: #5A7A4A; /* COLOR: hero subtext */
+      line-height: 1.7;
+      max-width: 460px;
+      margin-bottom: 32px;
+      font-weight: 300;
+    }
+
+    /* Search bar */
+    .hero-search {
+      display: flex;
+      background: #fff;
+      border: 2px solid #AAD990; /* COLOR: search border */
+      border-radius: 14px;
+      overflow: hidden;
+      max-width: 520px;
+      box-shadow: 0 2px 16px rgba(147, 207, 121, 0.15);
+    }
+
+    .hero-search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 14px 18px;
+      font-size: 15px;
+      color: #2A4A1A;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .hero-search input::placeholder { color: #A0C090; } /* COLOR: search placeholder */
+
+    .hero-search button {
+      background: #93CF79; /* COLOR: search button */
+      color: #fff;
+      border: none;
+      padding: 14px 26px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: opacity 0.15s;
+    }
+    .hero-search button:hover { opacity: 0.88; }
+
+    /* Place type filter chips */
+    .hero-types {
+      display: flex;
+      gap: 8px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .hero-type {
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      border: 1.5px solid #AAD990; /* COLOR: chip border */
+      background: #D5EFCA; /* COLOR: chip background */
+      color: #3A6B28; /* COLOR: chip text */
+      font-family: 'DM Sans', sans-serif;
+    }
+    .hero-type:hover,
+    .hero-type.active {
+      background: #93CF79; /* COLOR: active chip bg */
+      color: #fff;
+      border-color: #93CF79;
+    }
+
+    /* Stats row */
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      margin-top: 44px;
+    }
+
+    .hero-stat-val {
+      font-family: 'Coiny', cursive; /* FONT: stat numbers */
+      font-size: 44px;
+      color: #2A4A1A; /* COLOR: stat numbers */
+      line-height: 1;
+    }
+
+    .hero-stat-lbl {
+      font-size: 12px;
+      color: #7A9A6A; /* COLOR: stat labels */
+      margin-top: 3px;
+    }
+
+    /* ============================================================
+       TOP SPOTS — white background
+    ============================================================ */
+    .section {
+      padding: 52px 32px;
+      background: #fff;
+    }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 500;
+      color: #3A6B28; /* COLOR: eyebrow label */
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-family: 'Coiny', cursive; /* FONT: section headings */
+      font-size: 48px;
+      color: #222;
+      margin-bottom: 8px;
+      line-height: 1.05;
+    }
+
+    .section-sub {
+      font-size: 15px;
+      color: #888;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      max-width: 500px;
+    }
+
+    /* Place cards grid */
+    .place-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .place-card {
+      border-radius: 20px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1.5px solid #EEE;
+      background: #fff;
+      transition: all 0.15s;
+    }
+    .place-card:hover {
+      border-color: #93CF79; /* COLOR: card hover border */
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(147, 207, 121, 0.15);
+    }
+
+    .place-img {
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .place-img-icon { font-size: 48px; }
+
+    .place-score {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      border-radius: 10px;
+      padding: 4px 12px;
+      font-family: 'Coiny', cursive; /* FONT: score badge */
+      font-size: 22px;
+    }
+
+    .place-body { padding: 14px 16px; }
+
+    .place-name {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .place-meta {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+
+    .place-tags {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .place-tag {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background: #F2F2F2; /* COLOR: default tag bg */
+      color: #666;
+      border: 1px solid #E5E5E5;
+    }
+    .place-tag.wifi {
+      background: #E2F5D6; /* COLOR: wifi tag bg */
+      color: #3A6B28;
+      border-color: #AAD990;
+    }
+
+    /* ============================================================
+       PERKS — pastel purple background
+    ============================================================ */
+    .perks-band {
+      padding: 52px 32px;
+      background: #F2EDFF; /* COLOR: perks section bg */
+      border-top: 1px solid #DDD5FF;
+      border-bottom: 1px solid #DDD5FF;
+    }
+
+    .perks-eyebrow {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6040AA; /* COLOR: perks eyebrow */
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+    }
+
+    .perks-title {
+      font-family: 'Coiny', cursive; /* FONT: perks heading */
+      font-size: 48px;
+      color: #2E1A60; /* COLOR: perks heading */
+      margin-bottom: 8px;
+    }
+
+    .perks-sub {
+      font-size: 15px;
+      color: #7A6A9A; /* COLOR: perks subtext */
+      margin-bottom: 28px;
+      line-height: 1.6;
+      max-width: 500px;
+    }
+
+    .perks-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .perk-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      border: 1px solid #DDD5FF; /* COLOR: perk card border */
+    }
+
+    .perk-pts {
+      font-family: 'Coiny', cursive; /* FONT: points number */
+      font-size: 34px;
+      color: #7050C0; /* COLOR: points number */
+      margin-bottom: 6px;
+    }
+
+    .perk-action {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 5px;
+      color: #2E1A60; /* COLOR: perk action text */
+    }
+
+    .perk-desc {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #9A88BB; /* COLOR: perk description */
+    }
+
+    /* Redeem banner */
+    .perks-redeem {
+      margin-top: 16px;
+      background: #fff;
+      border: 2px solid #C0A8FF; /* COLOR: redeem banner border */
+      border-radius: 18px;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .perks-redeem-text {
+      font-size: 16px;
+      color: #2E1A60; /* COLOR: redeem heading */
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .perks-redeem-sub {
+      font-size: 13px;
+      color: #9A88BB; /* COLOR: redeem subtext */
+    }
+
+    .perks-redeem-btn {
+      background: #7050C0; /* COLOR: redeem button */
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .perks-redeem-btn:hover { opacity: 0.88; }
+
+    /* ============================================================
+       TESTIMONIALS — pastel yellow background
+    ============================================================ */
+    .testi-section {
+      padding: 52px 32px;
+      background: #FDFAED; /* COLOR: testimonials bg */
+      border-top: 1px solid #EDE5AA;
+    }
+
+    .testi-eyebrow {
+      font-size: 12px;
+      font-weight: 500;
+      color: #7A6A00; /* COLOR: testimonials eyebrow */
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 10px;
+    }
+
+    .testi-title {
+      font-family: 'Coiny', cursive; /* FONT: testimonials heading */
+      font-size: 48px;
+      color: #3A3000; /* COLOR: testimonials heading */
+      margin-bottom: 8px;
+    }
+
+    .testi-sub {
+      font-size: 15px;
+      color: #888;
+      line-height: 1.6;
+      max-width: 500px;
+      margin-bottom: 28px;
+    }
+
+    .testimonials {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .testi {
+      background: #fff;
+      border: 1.5px solid #EDE5AA; /* COLOR: testi card border */
+      border-radius: 20px;
+      padding: 20px;
+    }
+
+    .testi-quote {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.7;
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+
+    .testi-author {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .testi-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      flex-shrink: 0;
+    }
+
+    .testi-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .testi-role {
+      font-size: 11px;
+      color: #999;
+    }
+
+    /* ============================================================
+       CTA BAND — pastel blue background
+    ============================================================ */
+    .cta-band {
+      background: #EAF2FF; /* COLOR: CTA section bg */
+      border-top: 1px solid #C0D5F5;
+      padding: 52px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .cta-band h2 {
+      font-family: 'Coiny', cursive; /* FONT: CTA heading */
+      font-size: 44px;
+      color: #152A60; /* COLOR: CTA heading */
+      margin-bottom: 10px;
+      line-height: 1.1;
+    }
+
+    .cta-band p {
+      font-size: 15px;
+      color: #4A60AA; /* COLOR: CTA subtext */
+      line-height: 1.6;
+      max-width: 420px;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .cta-btn {
+      background: #3A6AE0; /* COLOR: CTA primary button */
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 13px 28px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: opacity 0.15s;
+    }
+    .cta-btn:hover { opacity: 0.88; }
+
+    .cta-btn-ghost {
+      background: transparent;
+      color: #3A6AE0; /* COLOR: CTA ghost button text */
+      border: 2px solid #A0C0FF; /* COLOR: CTA ghost border */
+      border-radius: 14px;
+      padding: 13px 28px;
+      font-size: 15px;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.15s;
+    }
+    .cta-btn-ghost:hover { background: #fff; }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    footer {
+      background: #F8F8F8;
+      border-top: 1px solid #EEE;
+      padding: 26px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-logo {
+      font-family: 'Chicle', cursive; /* FONT: footer logo */
+      font-size: 22px;
+      text-decoration: none;
+    }
+    .footer-logo .work  { color: #3A6B28; }
+    .footer-logo .local { color: #93CF79; }
+
+    .footer-links {
+      display: flex;
+      gap: 28px;
+    }
+
+    .footer-link {
+      font-size: 13px;
+      color: #999;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-link:hover { color: #555; }
+
+    .footer-copy {
+      font-size: 12px;
+      color: #CCC;
+    }
+
+    /* ============================================================
+       RESPONSIVE — basic mobile support
+    ============================================================ */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 48px; }
+      .place-grid { grid-template-columns: 1fr; }
+      .perks-grid { grid-template-columns: repeat(2, 1fr); }
+      .testimonials { grid-template-columns: 1fr; }
+      .cta-band { flex-direction: column; text-align: center; }
+      .cta-actions { justify-content: center; }
+      .hero-stats { gap: 24px; }
+      nav { padding: 12px 16px; }
+      .nav-links { gap: 16px; }
+      .section, .perks-band, .testi-section, .cta-band { padding: 40px 20px; }
+      .hero { padding: 44px 20px 40px; }
+      footer { flex-direction: column; gap: 16px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       NAV
+  ============================================================ -->
+  <nav>
+    <a class="nav-logo" href="#">
+      <span class="work">Work</span><span class="local">Local</span>
+    </a>
+    <div class="nav-links">
+      <a class="nav-link" href="#">Explore</a>
+      <a class="nav-link" href="#">Community</a>
+      <a class="nav-link" href="#">Add a spot</a>
+      <button class="nav-cta">Join for free</button>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       HERO
+  ============================================================ -->
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <div class="hero-dot"></div>
+      For the lifestyle nomad
+    </div>
+
+    <h1>
+      Find your next<br>
+      <span class="hl">favorite place</span><br>
+      to work local.
+    </h1>
+
+    <p class="hero-sub">
+      Cafes, breweries, wineries, co-ops — curated by nomads, for nomads.
+      Real wifi speeds, real reviews, real community.
+    </p>
+
+    <div class="hero-search">
+      <input type="text" placeholder="Search a city, neighborhood, or zip..." id="search-input"/>
+      <button onclick="handleSearch()">Find spots</button>
+    </div>
+
+    <div class="hero-types">
+      <div class="hero-type active" onclick="toggleType(this)">All spots</div>
+      <div class="hero-type" onclick="toggleType(this)">☕ Coffee shops</div>
+      <div class="hero-type" onclick="toggleType(this)">🍺 Breweries</div>
+      <div class="hero-type" onclick="toggleType(this)">🍷 Wineries</div>
+      <div class="hero-type" onclick="toggleType(this)">🏢 Co-working</div>
+      <div class="hero-type" onclick="toggleType(this)">🥐 Bakeries</div>
+      <div class="hero-type" onclick="toggleType(this)">✨ Other local spots</div>
+    </div>
+
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-val">2,841</div>
+        <div class="hero-stat-lbl">Spots listed</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">14,220</div>
+        <div class="hero-stat-lbl">Nomad check-ins</div>
+      </div>
+      <div>
+        <div class="hero-stat-val">312</div>
+        <div class="hero-stat-lbl">Cities covered</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       TOP SPOTS
+  ============================================================ -->
+  <section class="section">
+    <div class="section-eyebrow">Trending near Austin, TX</div>
+    <div class="section-title">Top spots this week</div>
+    <p class="section-sub">Ranked by nomad score — real check-ins, wifi tests, and community reviews.</p>
+
+    <div class="place-grid">
+
+      <div class="place-card">
+        <div class="place-img" style="background: #FAFAF5;">
+          <span class="place-img-icon">☕</span>
+          <div class="place-score" style="background: #E2F5D6; color: #3A6B28;">94</div>
+        </div>
+        <div class="place-body">
+          <div class="place-name">Epoch Coffee</div>
+          <div class="place-meta">North Loop · 0.4 mi</div>
+          <div class="place-tags">
+            <span class="place-tag wifi">87 Mbps</span>
+            <span class="place-tag">Outlets</span>
+            <span class="place-tag">Nomad friendly</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="place-card">
+        <div class="place-img" style="background: #F7FAFF;">
+          <span class="place-img-icon">🍺</span>
+          <div class="place-score" style="background: #D8E8FF; color: #2A4EA0;">91</div>
+        </div>
+        <div class="place-body">
+          <div class="place-name">Lazarus Brewing Co.</div>
+          <div class="place-meta">East 6th · 1.1 mi</div>
+          <div class="place-tags">
+            <span class="place-tag wifi">72 Mbps</span>
+            <span class="place-tag">Open late</span>
+            <span class="place-tag">Dog friendly</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="place-card">
+        <div class="place-img" style="background: #FAF7FF;">
+          <span class="place-img-icon">🍷</span>
+          <div class="place-score" style="background: #E8DAFF; color: #5A30A0;">87</div>
+        </div>
+        <div class="place-body">
+          <div class="place-name">William Chris Wines</div>
+          <div class="place-meta">Hye, TX · 64 mi</div>
+          <div class="place-tags">
+            <span class="place-tag wifi">55 Mbps</span>
+            <span class="place-tag">Scenic</span>
+            <span class="place-tag">Patio</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PERKS
+  ============================================================ -->
+  <section class="perks-band">
+    <div class="perks-eyebrow">Earn while you explore</div>
+    <div class="perks-title">Perks for contributing</div>
+    <p class="perks-sub">
+      Every check-in, review, and new spot you add earns nomad points.
+      Redeem them for free drinks at partner spots.
+    </p>
+
+    <div class="perks-grid">
+      <div class="perk-card">
+        <div class="perk-pts">+25 pts</div>
+        <div class="perk-action">Check in anywhere</div>
+        <div class="perk-desc">Show up, run a wifi test, done.</div>
+      </div>
+      <div class="perk-card">
+        <div class="perk-pts">+20 pts</div>
+        <div class="perk-action">Leave a review</div>
+        <div class="perk-desc">Help the next nomad find their spot.</div>
+      </div>
+      <div class="perk-card">
+        <div class="perk-pts">+75 pts</div>
+        <div class="perk-action">Add a new spot</div>
+        <div class="perk-desc">Be the first to put it on the map.</div>
+      </div>
+      <div class="perk-card">
+        <div class="perk-pts">+150 pts</div>
+        <div class="perk-action">First in a new city</div>
+        <div class="perk-desc">Pioneer bonus for planting the flag.</div>
+      </div>
+    </div>
+
+    <div class="perks-redeem">
+      <div>
+        <div class="perks-redeem-text">500 points = a free drink at any partner spot</div>
+        <div class="perks-redeem-sub">
+          Coffees, craft beers, wines — redeemable at WorkLocal partner locations nationwide
+        </div>
+      </div>
+      <button class="perks-redeem-btn">See how it works →</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       TESTIMONIALS
+  ============================================================ -->
+  <section class="testi-section">
+    <div class="testi-eyebrow">The community</div>
+    <div class="testi-title">What nomads are saying</div>
+    <p class="testi-sub">Real reviews from people who actually work from these places.</p>
+
+    <div class="testimonials">
+
+      <div class="testi">
+        <p class="testi-quote">
+          "Found a winery 20 minutes from downtown Nashville with 90 Mbps wifi
+          and not a single other laptop in sight. WorkLocal changed how I plan my work weeks."
+        </p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background: #E2F5D6; color: #3A6B28;">SR</div>
+          <div>
+            <div class="testi-name">Sofia R.</div>
+            <div class="testi-role">Product designer · Nashville</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="testi">
+        <p class="testi-quote">
+          "As someone who moves cities every few weeks, this is the first app that
+          gets what I need. Not just 'is there wifi' but 'will I actually be able to work here.'"
+        </p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background: #EAF2FF; color: #2A4EA0;">MT</div>
+          <div>
+            <div class="testi-name">Marcus T.</div>
+            <div class="testi-role">Engineer · Full-time nomad</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="testi">
+        <p class="testi-quote">
+          "I added a local brewery in my town that nobody had listed.
+          Now it has 40 check-ins. Genuinely proud of that."
+        </p>
+        <div class="testi-author">
+          <div class="testi-avatar" style="background: #F2EDFF; color: #6040AA;">JT</div>
+          <div>
+            <div class="testi-name">Jamie T.</div>
+            <div class="testi-role">Founding Nomad · Austin</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================
+       CTA
+  ============================================================ -->
+  <section class="cta-band">
+    <div>
+      <h2>Know a great local spot<br>that isn't listed yet?</h2>
+      <p>
+        Add it in two minutes. You get the Founding Nomad credit forever —
+        and the whole community benefits.
+      </p>
+    </div>
+    <div class="cta-actions">
+      <button class="cta-btn-ghost">Learn more</button>
+      <button class="cta-btn">Add a spot →</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FOOTER
+  ============================================================ -->
+  <footer>
+    <a class="footer-logo" href="#">
+      <span class="work">Work</span><span class="local">Local</span>
+    </a>
+    <div class="footer-links">
+      <a class="footer-link" href="#">About</a>
+      <a class="footer-link" href="#">Blog</a>
+      <a class="footer-link" href="#">For cafe owners</a>
+      <a class="footer-link" href="#">Contact</a>
+    </div>
+    <div class="footer-copy">Made with love for nomads</div>
+  </footer>
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+    // Filter chips — toggle active state
+    function toggleType(el) {
+      document.querySelectorAll('.hero-type').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // Search — placeholder for when search page is built
+    function handleSearch() {
+      const val = document.getElementById('search-input').value.trim();
+      if (val) {
+        alert('Search for "' + val + '" — map page coming soon!');
+      }
+    }
+
+    // Allow pressing Enter to search
+    document.getElementById('search-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') handleSearch();
+    });
+  </script>
+
+</body>
+</html>
