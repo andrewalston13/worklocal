@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WorkLocal — Explore Spots</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* ============================================================
+       WORKLOCAL — MAP + SEARCH RESULTS PAGE
+       ============================================================
+
+       FONTS:
+         'Chicle'  → Logo only
+         'Coiny'   → Scores, counts, numbers
+         'DM Sans' → Everything else
+
+       COLORS — change these to restyle:
+         --green-main:   #93CF79
+         --green-dark:   #3A6B28
+         --green-light:  #D5EFCA
+         --green-border: #AAD990
+
+       DATA SOURCE:
+         Right now → demo spots hardcoded in SPOT DATA section below
+         Later      → swap loadSpots() to fetch from Supabase
+                      (see comment in loadSpots function)
+
+    ============================================================ */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: #222;
+      background: #F7F7F5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: #fff;
+      border-bottom: 1px solid #E8E8E8;
+      z-index: 200;
+      flex-shrink: 0;
+    }
+
+    .nav-logo {
+      font-family: 'Chicle', cursive;
+      font-size: 24px;
+      letter-spacing: 1px;
+      text-decoration: none;
+    }
+    .nav-logo .work  { color: #3A6B28; }
+    .nav-logo .local { color: #93CF79; }
+
+    .nav-search {
+      display: flex;
+      background: #F7F7F5;
+      border: 1.5px solid #E0E0E0;
+      border-radius: 10px;
+      overflow: hidden;
+      width: 380px;
+    }
+    .nav-search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 9px 14px;
+      font-size: 13px;
+      color: #222;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .nav-search input::placeholder { color: #AAA; }
+    .nav-search button {
+      background: #93CF79;
+      color: #fff;
+      border: none;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .nav-right {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .nav-link {
+      font-size: 13px;
+      color: #777;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .nav-cta {
+      background: #93CF79;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 7px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      background: #fff;
+      border-bottom: 1px solid #EBEBEB;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+
+    .filter-label {
+      font-size: 12px;
+      color: #999;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .filter-chip {
+      border-radius: 20px;
+      padding: 5px 13px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s;
+      border: 1.5px solid #E0E0E0;
+      background: #fff;
+      color: #555;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .filter-chip:hover { border-color: #93CF79; color: #3A6B28; }
+    .filter-chip.active {
+      background: #93CF79;
+      color: #fff;
+      border-color: #93CF79;
+    }
+
+    .filter-divider {
+      width: 1px;
+      height: 20px;
+      background: #E8E8E8;
+      flex-shrink: 0;
+    }
+
+    .filter-sort {
+      border: 1.5px solid #E0E0E0;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-family: 'DM Sans', sans-serif;
+      color: #555;
+      background: #fff;
+      outline: none;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    .main-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: #fff;
+      border-right: 1px solid #EBEBEB;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid #F0F0F0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .sidebar-count {
+      font-size: 13px;
+      font-weight: 500;
+      color: #222;
+    }
+    .sidebar-count .count-num {
+      font-family: 'Coiny', cursive;
+      font-size: 20px;
+      color: #93CF79;
+      line-height: 1;
+    }
+
+    .results-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+    .results-list::-webkit-scrollbar { width: 4px; }
+    .results-list::-webkit-scrollbar-thumb {
+      background: #E0E0E0;
+      border-radius: 2px;
+    }
+
+    /* ── RESULT CARD ── */
+    .result-card {
+      padding: 14px 18px;
+      border-bottom: 1px solid #F5F5F5;
+      cursor: pointer;
+      transition: background 0.1s;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      border-left: 3px solid transparent;
+    }
+    .result-card:hover { background: #FAFAFA; }
+    .result-card.active {
+      background: #F0FAF0;
+      border-left-color: #93CF79;
+    }
+
+    .result-thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      flex-shrink: 0;
+    }
+
+    .result-body { flex: 1; min-width: 0; }
+
+    .result-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 3px;
+      gap: 8px;
+    }
+
+    .result-name {
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-score {
+      font-family: 'Coiny', cursive;
+      font-size: 20px;
+      color: #3A6B28;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .result-meta {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 7px;
+    }
+
+    .result-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .result-tag {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #F2F2F2;
+      color: #666;
+      border: 1px solid #EBEBEB;
+    }
+    .result-tag.wifi {
+      background: #E2F5D6;
+      color: #3A6B28;
+      border-color: #AAD990;
+    }
+    .result-tag.highlight {
+      background: #F2EDFF;
+      color: #7050C0;
+      border-color: #DDD5FF;
+    }
+
+    /* Loading + empty states */
+    .sidebar-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      text-align: center;
+      flex: 1;
+    }
+    .state-icon { font-size: 36px; margin-bottom: 12px; }
+    .state-title {
+      font-family: 'Coiny', cursive;
+      font-size: 22px;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    .state-sub { font-size: 13px; color: #999; line-height: 1.6; }
+
+    /* ── MAP ── */
+    .map-container { position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* Map overlay buttons */
+    .map-overlay {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 50;
+    }
+
+    .map-overlay-btn {
+      background: #fff;
+      border: 1px solid #E0E0E0;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      color: #444;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.12s;
+    }
+    .map-overlay-btn:hover { border-color: #93CF79; color: #3A6B28; }
+
+    /* Results pill on map */
+    .map-pill {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #222;
+      color: #fff;
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 50;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+      white-space: nowrap;
+    }
+
+    /* Leaflet popup overrides */
+    .leaflet-popup-content-wrapper {
+      border-radius: 14px !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+    }
+    .leaflet-popup-content { margin: 14px 16px !important; }
+    .leaflet-popup-tip { background: #fff !important; }
+
+    .map-popup { font-family: 'DM Sans', sans-serif; min-width: 200px; }
+    .map-popup-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+    .map-popup-meta { font-size: 11px; color: #999; margin-bottom: 8px; }
+    .map-popup-score {
+      font-family: 'Coiny', cursive;
+      font-size: 28px;
+      color: #3A6B28;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .map-popup-score-lbl { font-size: 10px; color: #999; margin-bottom: 8px; }
+    .map-popup-tags {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .map-popup-tag {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #E2F5D6;
+      color: #3A6B28;
+      border: 1px solid #AAD990;
+    }
+    .map-popup-btn {
+      width: 100%;
+      background: #93CF79;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .map-popup-btn:hover { background: #7AB865; }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a class="nav-logo" href="index.html">
+      <span class="work">Work</span><span class="local">Local</span>
+    </a>
+    <div class="nav-search">
+      <input type="text" placeholder="Search city, neighborhood, or zip..." id="search-input" value="Austin, TX"/>
+      <button onclick="handleSearch()">Search</button>
+    </div>
+    <div class="nav-right">
+      <a class="nav-link" href="worklocal_spot_detail.html">Add a spot</a>
+      <button class="nav-cta" onclick="window.location.href='worklocal_profile.html'">Join for free</button>
+    </div>
+  </nav>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <span class="filter-label">Type:</span>
+    <div class="filter-chip active" onclick="setTypeFilter(this, 'all')">All spots</div>
+    <div class="filter-chip" onclick="setTypeFilter(this, 'coffee')">☕ Coffee</div>
+    <div class="filter-chip" onclick="setTypeFilter(this, 'brewery')">🍺 Brewery</div>
+    <div class="filter-chip" onclick="setTypeFilter(this, 'winery')">🍷 Winery</div>
+    <div class="filter-chip" onclick="setTypeFilter(this, 'cowork')">🏢 Co-working</div>
+    <div class="filter-chip" onclick="setTypeFilter(this, 'bakery')">🥐 Bakery</div>
+    <div class="filter-chip" onclick="setTypeFilter(this, 'other')">✨ Other</div>
+
+    <div class="filter-divider"></div>
+
+    <span class="filter-label">Filter:</span>
+    <div class="filter-chip" onclick="toggleFilter(this, 'fast-wifi')">Fast wifi</div>
+    <div class="filter-chip" onclick="toggleFilter(this, 'outlets')">Outlets</div>
+    <div class="filter-chip" onclick="toggleFilter(this, 'quiet')">Quiet</div>
+    <div class="filter-chip" onclick="toggleFilter(this, 'dog-friendly')">Dog friendly</div>
+    <div class="filter-chip" onclick="toggleFilter(this, 'open-late')">Open late</div>
+
+    <div class="filter-divider"></div>
+
+    <span class="filter-label">Sort:</span>
+    <select class="filter-sort" onchange="handleSort(this.value)">
+      <option value="score">Best match</option>
+      <option value="wifi">Wifi speed</option>
+      <option value="distance">Distance</option>
+    </select>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-count">
+          <span class="count-num" id="result-count">6</span>
+          spots near Austin, TX
+        </div>
+      </div>
+      <div class="results-list" id="results-list"></div>
+      <div class="sidebar-state" id="empty-state" style="display:none;">
+        <div class="state-icon">🗺</div>
+        <div class="state-title">No spots found</div>
+        <div class="state-sub">Try a different filter<br>or search another area.</div>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <button class="map-overlay-btn" onclick="map.locate({setView:true,maxZoom:13})">📍 My location</button>
+        <button class="map-overlay-btn" onclick="window.location.href='#'">+ Add a spot</button>
+      </div>
+      <div class="map-pill" id="map-pill">6 spots in this area</div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ============================================================
+       SPOT DATA
+       ============================================================
+       This is your demo dataset — it makes the site look great
+       and fully functional right now.
+
+       HOW TO ADD MORE SPOTS RIGHT NOW:
+         Copy any spot object below, paste it into the array,
+         and update the fields. To get lat/lng for a place:
+         1. Go to Google Maps
+         2. Right-click the location
+         3. Click the coordinates that appear — they copy to clipboard
+         4. First number = lat, second = lng
+
+       TO CONNECT TO SUPABASE LATER (Step 6):
+         Replace the loadSpots() function below with:
+
+         async function loadSpots() {
+           const res = await fetch(
+             'https://YOUR_SUPABASE_URL/rest/v1/spots?select=*',
+             { headers: { apikey: 'YOUR_SUPABASE_ANON_KEY' } }
+           );
+           return await res.json();
+         }
+
+         That's literally it. Everything else stays the same.
+    ============================================================ */
+
+    const DEMO_SPOTS = [
+      {
+        id: 1,
+        name: 'Epoch Coffee',
+        type: 'coffee',
+        icon: '☕',
+        neighborhood: 'North Loop',
+        city: 'Austin, TX',
+        distance: '0.4 mi',
+        score: 94,
+        wifi_speed: 87,
+        tags: ['87 Mbps wifi', 'Lots of outlets', 'Nomad friendly'],
+        tag_styles: ['wifi', '', ''],
+        filters: ['fast-wifi', 'outlets'],
+        lat: 30.3230,
+        lng: -97.7340,
+        thumb_bg: '#F5F9F2',
+        score_bg: '#E2F5D6',
+        score_color: '#3A6B28',
+      },
+      {
+        id: 2,
+        name: 'Lazarus Brewing Co.',
+        type: 'brewery',
+        icon: '🍺',
+        neighborhood: 'East 6th',
+        city: 'Austin, TX',
+        distance: '1.1 mi',
+        score: 91,
+        wifi_speed: 72,
+        tags: ['72 Mbps wifi', 'Open late', 'Dog friendly'],
+        tag_styles: ['wifi', '', ''],
+        filters: ['fast-wifi', 'open-late', 'dog-friendly'],
+        lat: 30.2580,
+        lng: -97.7220,
+        thumb_bg: '#F2F6FF',
+        score_bg: '#D8E8FF',
+        score_color: '#2A4EA0',
+      },
+      {
+        id: 3,
+        name: 'Radio Coffee & Beer',
+        type: 'coffee',
+        icon: '☕',
+        neighborhood: 'South Lamar',
+        city: 'Austin, TX',
+        distance: '1.4 mi',
+        score: 89,
+        wifi_speed: 95,
+        tags: ['95 Mbps wifi', 'Outlets', 'Outdoor seating'],
+        tag_styles: ['wifi', '', ''],
+        filters: ['fast-wifi', 'outlets'],
+        lat: 30.2490,
+        lng: -97.7700,
+        thumb_bg: '#F5F9F2',
+        score_bg: '#E2F5D6',
+        score_color: '#3A6B28',
+      },
+      {
+        id: 4,
+        name: 'Cherrywood Coffeehouse',
+        type: 'coffee',
+        icon: '☕',
+        neighborhood: 'Cherrywood',
+        city: 'Austin, TX',
+        distance: '1.7 mi',
+        score: 86,
+        wifi_speed: 58,
+        tags: ['Quiet atmosphere', 'Cozy', 'Great coffee'],
+        tag_styles: ['highlight', '', ''],
+        filters: ['quiet'],
+        lat: 30.2660,
+        lng: -97.7180,
+        thumb_bg: '#F5F9F2',
+        score_bg: '#E2F5D6',
+        score_color: '#3A6B28',
+      },
+      {
+        id: 5,
+        name: 'Capital Factory',
+        type: 'cowork',
+        icon: '🏢',
+        neighborhood: 'Downtown',
+        city: 'Austin, TX',
+        distance: '2.0 mi',
+        score: 97,
+        wifi_speed: 320,
+        tags: ['320 Mbps wifi', 'Day pass', 'Standing desks'],
+        tag_styles: ['wifi', 'highlight', ''],
+        filters: ['fast-wifi', 'outlets'],
+        lat: 30.2685,
+        lng: -97.7404,
+        thumb_bg: '#F2F6FF',
+        score_bg: '#D8E8FF',
+        score_color: '#2A4EA0',
+      },
+      {
+        id: 6,
+        name: 'Cuvée Coffee',
+        type: 'coffee',
+        icon: '☕',
+        neighborhood: 'North Burnet',
+        city: 'Austin, TX',
+        distance: '2.3 mi',
+        score: 83,
+        wifi_speed: 110,
+        tags: ['110 Mbps wifi', 'Quiet', 'Minimalist vibe'],
+        tag_styles: ['wifi', 'highlight', ''],
+        filters: ['fast-wifi', 'quiet'],
+        lat: 30.3380,
+        lng: -97.7300,
+        thumb_bg: '#F5F9F2',
+        score_bg: '#E2F5D6',
+        score_color: '#3A6B28',
+      },
+    ];
+
+    /* ============================================================
+       DATA LOADER
+       Right now returns demo data.
+       Swap this function when connecting to Supabase.
+    ============================================================ */
+    async function loadSpots() {
+      // DEMO MODE — returns hardcoded spots instantly
+      return DEMO_SPOTS;
+
+      // SUPABASE MODE — uncomment and fill in your details:
+      // const res = await fetch(
+      //   'https://YOUR_PROJECT.supabase.co/rest/v1/spots?select=*',
+      //   { headers: { apikey: 'YOUR_ANON_KEY' } }
+      // );
+      // return await res.json();
+    }
+
+    /* ============================================================
+       STATE
+    ============================================================ */
+    let allSpots      = [];
+    let visibleSpots  = [];
+    let activeSpotId  = null;
+    let activeType    = 'all';
+    let activeFilters = new Set();
+    let sortBy        = 'score';
+    let markers       = {};
+
+    /* ============================================================
+       MAP INIT
+    ============================================================ */
+    const map = L.map('map', {
+      center: [30.2672, -97.7431],
+      zoom: 13,
+      zoomControl: true,
+    });
+
+    // Free OpenStreetMap tiles — no API key needed
+    // Swap tile URL here later for Google Maps or Mapbox if desired
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    /* ============================================================
+       RENDER SIDEBAR CARDS
+    ============================================================ */
+    function renderCards(spots) {
+      const list      = document.getElementById('results-list');
+      const empty     = document.getElementById('empty-state');
+      const countEl   = document.getElementById('result-count');
+      const pillEl    = document.getElementById('map-pill');
+
+      countEl.textContent = spots.length;
+      pillEl.textContent  = spots.length + ' spots in this area';
+
+      if (spots.length === 0) {
+        list.style.display  = 'none';
+        empty.style.display = 'flex';
+        return;
+      }
+
+      list.style.display  = 'block';
+      empty.style.display = 'none';
+
+      list.innerHTML = spots.map(s => `
+        <div class="result-card ${s.id === activeSpotId ? 'active' : ''}"
+             id="card-${s.id}"
+             onclick="handleCardClick(${s.id})">
+          <div class="result-thumb" style="background:${s.thumb_bg};">${s.icon}</div>
+          <div class="result-body">
+            <div class="result-top">
+              <div class="result-name">${s.name}</div>
+              <div class="result-score">${s.score}</div>
+            </div>
+            <div class="result-meta">${s.neighborhood} · ${s.distance}</div>
+            <div class="result-tags">
+              ${s.tags.map((tag, i) =>
+                `<span class="result-tag ${s.tag_styles[i]}">${tag}</span>`
+              ).join('')}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /* ============================================================
+       RENDER MAP MARKERS
+    ============================================================ */
+    function renderMarkers(spots) {
+      // Remove old markers
+      Object.values(markers).forEach(m => map.removeLayer(m));
+      markers = {};
+
+      spots.forEach(s => {
+        const isActive = s.id === activeSpotId;
+
+        const icon = L.divIcon({
+          className: '',
+          html: `
+            <div style="
+              width: 32px; height: 32px;
+              background: ${isActive ? '#3A6B28' : '#93CF79'};
+              border: 2.5px solid #fff;
+              border-radius: 50% 50% 50% 0;
+              transform: rotate(-45deg);
+              box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+              display: flex; align-items: center; justify-content: center;
+              cursor: pointer;
+              transition: all 0.15s;
+            ">
+              <span style="
+                transform: rotate(45deg);
+                font-family: 'Coiny', cursive;
+                font-size: 11px;
+                color: #fff;
+                line-height: 1;
+              ">${s.score}</span>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+          popupAnchor: [0, -36],
+        });
+
+        const popup = `
+          <div class="map-popup">
+            <div class="map-popup-name">${s.name}</div>
+            <div class="map-popup-meta">${s.neighborhood} · ${s.city} · ${s.distance}</div>
+            <div class="map-popup-score">${s.score}</div>
+            <div class="map-popup-score-lbl">nomad score</div>
+            <div class="map-popup-tags">
+              ${s.tags.slice(0, 3).map(t =>
+                `<span class="map-popup-tag">${t}</span>`
+              ).join('')}
+            </div>
+            <button class="map-popup-btn" onclick="window.location.href='worklocal_spot_detail.html'">
+              View full details →
+            </button>
+          </div>
+        `;
+
+        const marker = L.marker([s.lat, s.lng], { icon })
+          .addTo(map)
+          .bindPopup(popup, { maxWidth: 240 });
+
+        marker.on('click', () => selectSpot(s.id));
+        markers[s.id] = marker;
+      });
+    }
+
+    /* ============================================================
+       SELECT A SPOT
+    ============================================================ */
+    function selectSpot(id) {
+      activeSpotId = id;
+
+      // Highlight card
+      document.querySelectorAll('.result-card').forEach(c => c.classList.remove('active'));
+      const card = document.getElementById('card-' + id);
+      if (card) {
+        card.classList.add('active');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      // Open popup + re-render markers so active marker turns dark green
+      renderMarkers(visibleSpots);
+      if (markers[id]) markers[id].openPopup();
+    }
+
+    /* ============================================================
+       FILTERING
+    ============================================================ */
+    function applyFilters() {
+      let results = [...allSpots];
+
+      // Type filter
+      if (activeType !== 'all') {
+        results = results.filter(s => s.type === activeType);
+      }
+
+      // Attribute filters (must match ALL active filters)
+      if (activeFilters.size > 0) {
+        results = results.filter(s =>
+          [...activeFilters].every(f => s.filters.includes(f))
+        );
+      }
+
+      // Sort
+      results.sort((a, b) => {
+        if (sortBy === 'wifi')     return b.wifi_speed - a.wifi_speed;
+        if (sortBy === 'distance') return parseFloat(a.distance) - parseFloat(b.distance);
+        return b.score - a.score; // default: best match
+      });
+
+      visibleSpots = results;
+      renderCards(results);
+      renderMarkers(results);
+    }
+
+    function setTypeFilter(el, type) {
+      document.querySelectorAll('.filter-chip').forEach(c => {
+        if (['all','coffee','brewery','winery','cowork','bakery','other']
+            .some(t => c.textContent.trim().includes(
+              t === 'all' ? 'All' :
+              t === 'coffee' ? 'Coffee' :
+              t === 'brewery' ? 'Brewery' :
+              t === 'winery' ? 'Winery' :
+              t === 'cowork' ? 'Co-working' :
+              t === 'bakery' ? 'Bakery' : 'Other'
+            ))) {
+          c.classList.remove('active');
+        }
+      });
+      el.classList.add('active');
+      activeType = type;
+      applyFilters();
+    }
+
+    function toggleFilter(el, filter) {
+      el.classList.toggle('active');
+      if (activeFilters.has(filter)) {
+        activeFilters.delete(filter);
+      } else {
+        activeFilters.add(filter);
+      }
+      applyFilters();
+    }
+
+    function handleSort(val) {
+      sortBy = val;
+      applyFilters();
+    }
+
+    function handleSearch() {
+      const val = document.getElementById('search-input').value.trim();
+      if (val) {
+        // Update label — real geocoding search comes with backend
+        document.querySelector('.sidebar-count').innerHTML =
+          `<span class="count-num" id="result-count">${visibleSpots.length}</span> spots near ${val}`;
+      }
+    }
+
+    /* ============================================================
+       INIT — load spots and render everything
+    ============================================================ */
+
+    function handleCardClick(id) {
+      // First click selects + opens popup, second click goes to detail
+      if (activeSpotId === id) {
+        window.location.href = 'worklocal_spot_detail.html';
+      } else {
+        selectSpot(id);
+      }
+    }
+
+    async function init() {
+      allSpots     = await loadSpots();
+      visibleSpots = [...allSpots];
+      renderCards(visibleSpots);
+      renderMarkers(visibleSpots);
+    }
+
+    init();
+
+    // Enter key in search bar
+    document.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSearch();
+    });
+  </script>
+
+</body>
+</html>
