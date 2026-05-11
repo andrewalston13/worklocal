@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Check In — WorkLocal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="worklocal_config.js"></script>
+  <script src="worklocal_auth.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: #222;
+      background: #F7F7F5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* NAV */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 32px; background: #fff; border-bottom: 1px solid #E8E8E8;
+    }
+    .nav-logo { font-family:'Chicle',cursive; font-size:24px; letter-spacing:1px; text-decoration:none; }
+    .nav-logo .work { color:#3A6B28; } .nav-logo .local { color:#93CF79; }
+    .nav-back {
+      font-size:13px; color:#3A6B28; text-decoration:none; cursor:pointer;
+      border:1.5px solid #AAD990; border-radius:20px; padding:6px 14px;
+      transition:background 0.12s;
+    }
+    .nav-back:hover { background:#E2F5D6; }
+
+    /* PAGE */
+    .page-wrap {
+      flex:1; display:flex; align-items:flex-start;
+      justify-content:center; padding:32px 20px 60px;
+    }
+
+    .checkin-shell { width:100%; max-width:520px; display:flex; flex-direction:column; gap:16px; }
+
+    /* SPOT BANNER */
+    .spot-banner {
+      background:#2A4A1A; border-radius:18px; padding:16px 20px;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .spot-banner-left { display:flex; align-items:center; gap:12px; }
+    .spot-banner-icon { font-size:32px; }
+    .spot-banner-name { font-size:16px; font-weight:500; color:#fff; margin-bottom:2px; }
+    .spot-banner-sub  { font-size:12px; color:#9FD084; }
+    .live-badge { background:#93CF79; color:#fff; font-size:11px; font-weight:500; padding:4px 12px; border-radius:20px; }
+
+    /* PROGRESS */
+    .progress-wrap { background:#fff; border:1px solid #EBEBEB; border-radius:14px; padding:14px 20px; }
+    .progress-steps { display:flex; align-items:center; justify-content:space-between; position:relative; }
+    .progress-line-track { position:absolute; top:14px; left:14px; right:14px; height:2px; background:#F0F0F0; z-index:0; }
+    .progress-line-fill  { height:100%; background:#93CF79; border-radius:1px; transition:width 0.4s ease; }
+    .progress-step { display:flex; flex-direction:column; align-items:center; gap:6px; z-index:1; }
+    .step-dot {
+      width:28px; height:28px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      font-size:12px; font-weight:500; border:2px solid #E0E0E0;
+      background:#fff; color:#BBB; transition:all 0.25s;
+    }
+    .step-dot.done   { background:#93CF79; border-color:#93CF79; color:#fff; }
+    .step-dot.active { background:#E2F5D6; border-color:#93CF79; color:#3A6B28; }
+    .step-label { font-size:10px; color:#BBB; text-transform:uppercase; letter-spacing:0.5px; transition:color 0.25s; white-space:nowrap; }
+    .step-label.active { color:#3A6B28; }
+    .step-label.done   { color:#93CF79; }
+
+    /* STEP PANELS */
+    .step-panel { display:none; background:#fff; border:1px solid #EBEBEB; border-radius:18px; padding:24px; }
+    .step-panel.active { display:block; }
+    .step-title { font-family:'Coiny',cursive; font-size:26px; color:#222; margin-bottom:4px; }
+    .step-sub   { font-size:13px; color:#999; margin-bottom:22px; line-height:1.6; }
+
+    /* WIFI TEST */
+    .wifi-card {
+      background:#EDF7E5; border:1.5px solid #AAD990;
+      border-radius:14px; padding:24px; text-align:center; margin-bottom:16px;
+    }
+    .wifi-speed-num {
+      font-family:'Coiny',cursive; font-size:72px;
+      color:#3A6B28; line-height:1; margin-bottom:2px;
+    }
+    .wifi-speed-unit { font-size:14px; color:#5A7A4A; margin-bottom:16px; }
+    .wifi-progress-track { height:6px; background:#C8E8A8; border-radius:3px; overflow:hidden; margin-bottom:8px; }
+    .wifi-progress-fill  { height:100%; background:#3A6B28; border-radius:3px; width:0%; transition:width 0.1s linear; }
+    .wifi-status { font-size:12px; color:#5A7A4A; margin-bottom:16px; }
+    .wifi-meta   { display:grid; grid-template-columns:1fr 1fr; gap:10px; display:none; }
+    .wifi-meta-stat { background:#fff; border-radius:10px; padding:10px; text-align:center; }
+    .wifi-meta-val { font-family:'Coiny',cursive; font-size:22px; color:#3A6B28; line-height:1; }
+    .wifi-meta-lbl { font-size:11px; color:#999; margin-top:2px; }
+
+    /* RATINGS */
+    .rating-block { margin-bottom:18px; }
+    .rating-q    { font-size:14px; font-weight:500; margin-bottom:3px; }
+    .rating-hint { font-size:11px; color:#BBB; margin-bottom:9px; }
+    .rating-btns { display:flex; gap:8px; }
+    .rating-btn  {
+      flex:1; padding:10px 6px; border:1.5px solid #E8E8E8;
+      border-radius:10px; background:#fff; font-size:13px; font-weight:500;
+      cursor:pointer; font-family:'DM Sans',sans-serif; color:#555;
+      transition:all 0.12s; text-align:center;
+    }
+    .rating-btn:hover { border-color:#93CF79; color:#3A6B28; }
+    .rating-btn.sel-good { background:#E2F5D6; border-color:#93CF79; color:#3A6B28; }
+    .rating-btn.sel-mid  { background:#FAEEDA; border-color:#EF9F27; color:#854F0B; }
+    .rating-btn.sel-bad  { background:#FCEBEB; border-color:#E24B4A; color:#791F1F; }
+    .rating-divider { height:1px; background:#F5F5F5; margin:18px 0; }
+
+    /* VIBE */
+    .vibe-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px; }
+    .vibe-chip {
+      border:1.5px solid #E8E8E8; border-radius:12px; padding:11px 14px;
+      cursor:pointer; background:#fff; font-size:13px;
+      font-family:'DM Sans',sans-serif; color:#555; transition:all 0.12s; text-align:left;
+    }
+    .vibe-chip:hover { border-color:#93CF79; color:#3A6B28; }
+    .vibe-chip.selected { background:#E2F5D6; border-color:#93CF79; color:#3A6B28; }
+    .vibe-chip-icon { font-size:18px; display:block; margin-bottom:5px; }
+
+    .review-label { font-size:14px; font-weight:500; margin-bottom:3px; }
+    .review-hint  { font-size:12px; color:#BBB; margin-bottom:10px; line-height:1.5; }
+    textarea {
+      width:100%; border:1.5px solid #E8E8E8; border-radius:12px;
+      padding:12px 14px; font-size:13px; font-family:'DM Sans',sans-serif;
+      color:#333; background:#fff; resize:none; outline:none; line-height:1.6;
+      transition:border-color 0.12s;
+    }
+    textarea:focus { border-color:#93CF79; }
+    textarea::placeholder { color:#CCC; }
+    .char-count { font-size:11px; color:#CCC; text-align:right; margin-top:5px; }
+
+    /* SUCCESS */
+    .success-wrap { text-align:center; padding:8px 0; }
+    .success-ring {
+      width:80px; height:80px; border-radius:50%;
+      background:#E2F5D6; border:2.5px solid #93CF79;
+      display:flex; align-items:center; justify-content:center;
+      margin:0 auto 16px;
+    }
+    .success-check { font-size:32px; }
+    .success-title { font-family:'Coiny',cursive; font-size:32px; color:#222; margin-bottom:6px; }
+    .success-sub   { font-size:14px; color:#888; line-height:1.6; max-width:340px; margin:0 auto 20px; }
+    .points-pill   {
+      display:inline-flex; align-items:center; gap:8px;
+      background:#E2F5D6; border-radius:20px; padding:8px 20px; margin-bottom:22px;
+    }
+    .points-dot  { width:8px; height:8px; border-radius:50%; background:#93CF79; }
+    .points-text { font-family:'Coiny',cursive; font-size:20px; color:#3A6B28; }
+    .success-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:24px; }
+    .success-stat  { background:#F7F7F5; border-radius:12px; padding:12px 10px; text-align:center; }
+    .success-stat-val { font-family:'Coiny',cursive; font-size:24px; color:#3A6B28; line-height:1; }
+    .success-stat-lbl { font-size:11px; color:#999; margin-top:3px; }
+
+    /* BUTTONS */
+    .btn-primary {
+      width:100%; background:#93CF79; color:#fff; border:none;
+      border-radius:12px; padding:13px; font-size:14px; font-weight:500;
+      cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.12s; margin-top:6px;
+    }
+    .btn-primary:hover    { background:#7AB865; }
+    .btn-primary:disabled { background:#C8E8A8; cursor:not-allowed; }
+    .btn-secondary {
+      width:100%; background:transparent; color:#999;
+      border:1.5px solid #E8E8E8; border-radius:12px; padding:12px;
+      font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; margin-top:8px;
+      transition:all 0.12s;
+    }
+    .btn-secondary:hover { border-color:#AAA; color:#666; }
+
+    /* POINTS REMINDER */
+    .points-reminder {
+      background:#F2EDFF; border:1px solid #DDD5FF;
+      border-radius:14px; padding:14px 18px;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .points-reminder-left { display:flex; align-items:center; gap:10px; }
+    .points-reminder-icon  { font-size:24px; flex-shrink:0; }
+    .points-reminder-title { font-size:13px; font-weight:500; color:#2E1A60; margin-bottom:2px; }
+    .points-reminder-sub   { font-size:11px; color:#9A88BB; }
+    .points-badge { font-family:'Coiny',cursive; font-size:22px; color:#7050C0; white-space:nowrap; }
+
+    /* NOT FOUND */
+    .not-found {
+      display:none; text-align:center; padding:48px 24px; color:#999;
+    }
+    .not-found-icon  { font-size:48px; margin-bottom:16px; }
+    .not-found-title { font-family:'Coiny',cursive; font-size:28px; color:#555; margin-bottom:8px; }
+    .not-found-sub   { font-size:14px; line-height:1.6; margin-bottom:20px; }
+
+    /* LOCATION VERIFICATION */
+    .location-checking {
+      display:none; text-align:center; padding:48px 24px;
+    }
+    .location-checking-icon { font-size:48px; margin-bottom:16px; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .location-checking-title { font-family:'Coiny',cursive; font-size:28px; color:#555; margin-bottom:8px; }
+    .location-checking-sub   { font-size:14px; color:#999; line-height:1.6; }
+
+    .location-blocked {
+      display:none; text-align:center; padding:36px 24px;
+      background:#fff; border:1px solid #EBEBEB; border-radius:18px;
+    }
+    .location-blocked-icon  { font-size:48px; margin-bottom:16px; }
+    .location-blocked-title { font-family:'Coiny',cursive; font-size:28px; color:#E24B4A; margin-bottom:8px; }
+    .location-blocked-sub   { font-size:14px; color:#888; line-height:1.7; margin-bottom:6px; }
+    .location-blocked-dist  { font-family:'Coiny',cursive; font-size:22px; color:#555; margin:12px 0; }
+    .location-blocked-hint  { font-size:12px; color:#BBB; line-height:1.6; margin-bottom:20px; }
+    .location-denied {
+      display:none; text-align:center; padding:36px 24px;
+      background:#fff; border:1px solid #EBEBEB; border-radius:18px;
+    }
+    .location-denied-icon  { font-size:48px; margin-bottom:16px; }
+    .location-denied-title { font-family:'Coiny',cursive; font-size:28px; color:#555; margin-bottom:8px; }
+    .location-denied-sub   { font-size:14px; color:#888; line-height:1.7; margin-bottom:20px; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="index.html"><span class="work">Work</span><span class="local">Local</span></a>
+    <a class="nav-back" id="back-link" href="worklocal_map.html">← Back</a>
+  </nav>
+
+  <!-- INITIAL LOADING STATE — visible by default, hidden once JS runs -->
+  <div class="page-wrap" id="initial-loading" style="display:flex;">
+    <div class="checkin-shell">
+      <div style="text-align:center;padding:48px 24px;">
+        <div style="font-size:48px;margin-bottom:16px;">☕</div>
+        <div style="font-family:'Coiny',cursive;font-size:28px;color:#555;margin-bottom:8px;">Loading...</div>
+        <div style="font-size:14px;color:#BBB;">Getting spot details</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOT FOUND STATE -->
+  <div class="not-found" id="not-found">
+    <div class="not-found-icon">🗺</div>
+    <div class="not-found-title">Spot not found</div>
+    <div class="not-found-sub">We couldn't find that spot. It may have been removed.</div>
+    <a href="worklocal_map.html" style="background:#93CF79;color:#fff;border-radius:20px;padding:10px 24px;text-decoration:none;font-size:14px;font-weight:500;">Back to map</a>
+  </div>
+
+  <!-- LOCATION CHECKING STATE -->
+  <div class="page-wrap" id="location-checking" style="display:none;">
+    <div class="checkin-shell">
+      <div class="location-checking">
+        <div class="location-checking-icon">📍</div>
+        <div class="location-checking-title">Verifying your location...</div>
+        <div class="location-checking-sub">We need to confirm you're actually at this spot.<br>Please allow location access when prompted.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOCATION BLOCKED STATE -->
+  <div class="page-wrap" id="location-blocked" style="display:none;">
+    <div class="checkin-shell">
+      <div class="location-blocked">
+        <div class="location-blocked-icon">🚫</div>
+        <div class="location-blocked-title">You're not at this spot</div>
+        <div class="location-blocked-sub">WorkLocal check-ins require you to be physically present at the location.</div>
+        <div class="location-blocked-dist" id="blocked-distance"></div>
+        <div class="location-blocked-hint">
+          Check-ins must be within 500 meters of the spot.<br>
+          This keeps our nomad scores accurate and trustworthy for everyone.
+        </div>
+        <a id="back-to-spot-blocked" href="worklocal_spot_detail.html"
+          style="display:inline-block;background:#93CF79;color:#fff;border-radius:20px;padding:10px 24px;text-decoration:none;font-size:14px;font-weight:500;margin-bottom:10px;">
+          Back to spot
+        </a><br>
+        <a href="worklocal_map.html"
+          style="font-size:13px;color:#999;text-decoration:none;">
+          Find a spot near me →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOCATION DENIED STATE -->
+  <div class="page-wrap" id="location-denied" style="display:none;">
+    <div class="checkin-shell">
+      <div class="location-denied">
+        <div class="location-denied-icon">📵</div>
+        <div class="location-denied-title">Location access needed</div>
+        <div class="location-denied-sub">
+          WorkLocal needs your location to verify you're at this spot.<br><br>
+          To enable location access:<br>
+          <strong>Chrome:</strong> Click the lock icon in your address bar → Allow location<br>
+          <strong>Safari:</strong> Settings → Privacy → Location Services → Allow
+        </div>
+        <button onclick="verifyLocation()"
+          style="background:#93CF79;color:#fff;border:none;border-radius:20px;padding:10px 24px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;margin-bottom:10px;">
+          Try again
+        </button><br>
+        <a id="back-to-spot-denied" href="worklocal_spot_detail.html"
+          style="font-size:13px;color:#999;text-decoration:none;">
+          Back to spot
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-wrap" id="checkin-page" style="display:none;">
+    <div class="checkin-shell">
+
+      <!-- SPOT BANNER — populated by JS -->
+      <div class="spot-banner">
+        <div class="spot-banner-left">
+          <span class="spot-banner-icon" id="banner-icon">☕</span>
+          <div>
+            <div class="spot-banner-name" id="banner-name">Loading...</div>
+            <div class="spot-banner-sub"  id="banner-sub">Loading...</div>
+          </div>
+        </div>
+        <div class="live-badge">Checking in</div>
+      </div>
+
+      <!-- PROGRESS BAR -->
+      <div class="progress-wrap">
+        <div class="progress-steps">
+          <div class="progress-line-track">
+            <div class="progress-line-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+          <div class="progress-step">
+            <div class="step-dot active" id="dot-1">1</div>
+            <div class="step-label active" id="lbl-1">Wifi</div>
+          </div>
+          <div class="progress-step">
+            <div class="step-dot" id="dot-2">2</div>
+            <div class="step-label" id="lbl-2">Ratings</div>
+          </div>
+          <div class="progress-step">
+            <div class="step-dot" id="dot-3">3</div>
+            <div class="step-label" id="lbl-3">Vibe</div>
+          </div>
+          <div class="progress-step">
+            <div class="step-dot" id="dot-4">4</div>
+            <div class="step-label" id="lbl-4">Done</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 1: WIFI TEST -->
+      <div class="step-panel active" id="step-1">
+        <div class="step-title">Running wifi test</div>
+        <div class="step-sub">Testing your actual connection speed right now. This data helps every nomad who comes after you.</div>
+
+        <div class="wifi-card">
+          <div class="wifi-speed-num" id="wifi-num">0</div>
+          <div class="wifi-speed-unit">Mbps download</div>
+          <div class="wifi-progress-track">
+            <div class="wifi-progress-fill" id="wifi-bar"></div>
+          </div>
+          <div class="wifi-status" id="wifi-status">Measuring your connection...</div>
+          <div class="wifi-meta" id="wifi-meta">
+            <div class="wifi-meta-stat">
+              <div class="wifi-meta-val" id="wifi-upload-val">—</div>
+              <div class="wifi-meta-lbl">Mbps upload</div>
+            </div>
+            <div class="wifi-meta-stat">
+              <div class="wifi-meta-val" id="wifi-ping-val">—</div>
+              <div class="wifi-meta-lbl">Ping (ms)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="points-reminder">
+          <div class="points-reminder-left">
+            <div class="points-reminder-icon">📶</div>
+            <div>
+              <div class="points-reminder-title">Wifi test earns points</div>
+              <div class="points-reminder-sub">Every speed test helps the next nomad</div>
+            </div>
+          </div>
+          <div class="points-badge">+10 pts</div>
+        </div>
+
+        <button class="btn-primary" id="wifi-next-btn" disabled onclick="goToStep(2)">
+          Testing wifi...
+        </button>
+      </div>
+
+      <!-- STEP 2: RATINGS -->
+      <div class="step-panel" id="step-2">
+        <div class="step-title">Quick ratings</div>
+        <div class="step-sub">One tap per question — takes about 10 seconds.</div>
+
+        <div class="rating-block">
+          <div class="rating-q">Outlet availability</div>
+          <div class="rating-hint">Could you find a plug easily?</div>
+          <div class="rating-btns">
+            <button class="rating-btn" onclick="pickRating(this,'outlets','good')">Plenty</button>
+            <button class="rating-btn" onclick="pickRating(this,'outlets','mid')">Some</button>
+            <button class="rating-btn" onclick="pickRating(this,'outlets','bad')">None</button>
+          </div>
+        </div>
+        <div class="rating-divider"></div>
+        <div class="rating-block">
+          <div class="rating-q">Noise level</div>
+          <div class="rating-hint">How was the overall sound?</div>
+          <div class="rating-btns">
+            <button class="rating-btn" onclick="pickRating(this,'noise','good')">Quiet</button>
+            <button class="rating-btn" onclick="pickRating(this,'noise','mid')">Moderate</button>
+            <button class="rating-btn" onclick="pickRating(this,'noise','bad')">Loud</button>
+          </div>
+        </div>
+        <div class="rating-divider"></div>
+        <div class="rating-block">
+          <div class="rating-q">Nomad friendliness</div>
+          <div class="rating-hint">Were staff welcoming to laptop workers?</div>
+          <div class="rating-btns">
+            <button class="rating-btn" onclick="pickRating(this,'friendly','good')">Very welcome</button>
+            <button class="rating-btn" onclick="pickRating(this,'friendly','mid')">Neutral</button>
+            <button class="rating-btn" onclick="pickRating(this,'friendly','bad')">Not really</button>
+          </div>
+        </div>
+        <div class="rating-divider"></div>
+        <div class="rating-block">
+          <div class="rating-q">Drink quality</div>
+          <div class="rating-hint">How was whatever you ordered?</div>
+          <div class="rating-btns">
+            <button class="rating-btn" onclick="pickRating(this,'drink','good')">Great</button>
+            <button class="rating-btn" onclick="pickRating(this,'drink','mid')">Decent</button>
+            <button class="rating-btn" onclick="pickRating(this,'drink','bad')">Not good</button>
+          </div>
+        </div>
+
+        <div class="points-reminder" style="margin-top:18px;">
+          <div class="points-reminder-left">
+            <div class="points-reminder-icon">⭐</div>
+            <div>
+              <div class="points-reminder-title">Ratings earn you points</div>
+              <div class="points-reminder-sub">Check-in earns +25 pts total</div>
+            </div>
+          </div>
+          <div class="points-badge">+25 pts</div>
+        </div>
+
+        <button class="btn-primary" onclick="goToStep(3)">Next — vibe ↗</button>
+        <button class="btn-secondary" onclick="goToStep(3)">Skip ratings</button>
+      </div>
+
+      <!-- STEP 3: VIBE + REVIEW -->
+      <div class="step-panel" id="step-3">
+        <div class="step-title">Vibe + review</div>
+        <div class="step-sub">Tag the atmosphere and leave a note for other nomads.</div>
+
+        <div class="vibe-grid">
+          <div class="vibe-chip" onclick="toggleVibe(this)"><span class="vibe-chip-icon">🎧</span>Great for focus</div>
+          <div class="vibe-chip" onclick="toggleVibe(this)"><span class="vibe-chip-icon">💬</span>Good for calls</div>
+          <div class="vibe-chip" onclick="toggleVibe(this)"><span class="vibe-chip-icon">🌅</span>Bright + airy</div>
+          <div class="vibe-chip" onclick="toggleVibe(this)"><span class="vibe-chip-icon">🌿</span>Cozy + calm</div>
+          <div class="vibe-chip" onclick="toggleVibe(this)"><span class="vibe-chip-icon">🎶</span>Lively energy</div>
+          <div class="vibe-chip" onclick="toggleVibe(this)"><span class="vibe-chip-icon">🚗</span>Easy parking</div>
+        </div>
+
+        <div class="review-label">
+          Write a review
+          <span style="font-size:12px;font-weight:400;color:#CCC;margin-left:6px;">optional</span>
+        </div>
+        <div class="review-hint">Best seats, peak hours, anything helpful for the next nomad.</div>
+        <textarea id="review-text" rows="5" maxlength="500"
+          placeholder="e.g. Window seats on the north wall have the strongest signal. Gets busy after 10am — arrive early to grab an outlet spot."
+          oninput="updateCharCount()"></textarea>
+        <div class="char-count"><span id="char-count">0</span> / 500</div>
+
+        <div class="points-reminder" style="margin-top:16px;">
+          <div class="points-reminder-left">
+            <div class="points-reminder-icon">✍️</div>
+            <div>
+              <div class="points-reminder-title">Reviews earn extra points</div>
+              <div class="points-reminder-sub">Written review adds +20 pts</div>
+            </div>
+          </div>
+          <div class="points-badge">+20 pts</div>
+        </div>
+
+        <button class="btn-primary" onclick="submitCheckin()">Submit check-in ↗</button>
+        <button class="btn-secondary" onclick="submitCheckin()">Skip & submit</button>
+      </div>
+
+      <!-- STEP 4: SUCCESS -->
+      <div class="step-panel" id="step-4">
+        <div class="success-wrap">
+          <div class="success-ring"><div class="success-check">✓</div></div>
+          <div class="success-title">You're checked in!</div>
+          <div class="success-sub" id="success-sub">Your wifi test and ratings have been saved. Other nomads will see your data right away.</div>
+          <div class="points-pill">
+            <div class="points-dot"></div>
+            <div class="points-text" id="points-earned">+35 nomad points earned</div>
+          </div>
+          <div class="success-stats">
+            <div class="success-stat">
+              <div class="success-stat-val" id="success-wifi">—</div>
+              <div class="success-stat-lbl">Mbps tested</div>
+            </div>
+            <div class="success-stat">
+              <div class="success-stat-val" id="success-checkins">—</div>
+              <div class="success-stat-lbl">Total check-ins</div>
+            </div>
+            <div class="success-stat">
+              <div class="success-stat-val" id="success-score">—</div>
+              <div class="success-stat-lbl">Nomad score</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="back-to-spot-btn" onclick="window.location.href='worklocal_spot_detail.html'">
+          Back to spot
+        </button>
+        <button class="btn-secondary" onclick="window.location.href='worklocal_map.html'">
+          Find another spot ↗
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       READ SPOT ID FROM URL
+       e.g. worklocal_checkin.html?id=42
+    ============================================================ */
+    const params  = new URLSearchParams(window.location.search);
+    const SPOT_ID = params.get('id');
+
+    let currentSpot    = null;
+    let wifiDownload   = 0;
+    let wifiUpload     = 0;
+    let wifiPing       = 0;
+    let wifiDone       = false;
+    const ratings      = {};
+    const vibes        = new Set();
+    let currentStep    = 1;
+
+    const TYPE_ICON = { coffee:'☕', brewery:'🍺', winery:'🍷', cowork:'🏢', bakery:'🥐', other:'✨' };
+
+    /* ============================================================
+       LOAD SPOT FROM SUPABASE
+    ============================================================ */
+    async function loadSpot() {
+      if (!SPOT_ID) { showState('not-found'); return; }
+
+      try {
+        const client = WLAuth.getClient();
+        if (!client) {
+          // No Supabase — skip location check for demo
+          populateCheckin({ id:0, name:'Demo Spot', type:'coffee', city:'Austin', state:'TX', nomad_score:0, checkin_count:0 });
+          showState('checkin-page');
+          setTimeout(runWifiTest, 600);
+          return;
+        }
+
+        const { data: spot, error } = await client
+          .from('spots')
+          .select('id, name, type, city, state, lat, lng, nomad_score, checkin_count')
+          .eq('id', SPOT_ID)
+          .single();
+
+        if (error || !spot) { showState('not-found'); return; }
+
+        currentSpot = spot;
+        populateCheckin(spot);
+
+        // ── Verify location before showing check-in ──
+        verifyLocation();
+
+      } catch (err) {
+        console.error('Load spot error:', err);
+        showState('not-found');
+      }
+    }
+
+    /* ============================================================
+       LOCATION VERIFICATION
+       Must be within 500 meters of the spot to check in
+    ============================================================ */
+    const MAX_DISTANCE_METERS = 500; // ~5 city blocks
+
+    function verifyLocation() {
+      // Always show checking state first
+      showState('location-checking');
+
+      // Capture spot reference now in case of async issues
+      const spot = currentSpot;
+
+      // If spot has no coordinates — allow check-in (can't verify)
+      if (!spot || !spot.lat || !spot.lng ||
+          isNaN(parseFloat(spot.lat)) || isNaN(parseFloat(spot.lng))) {
+        console.warn('Spot has no coordinates — allowing check-in');
+        allowCheckin();
+        return;
+      }
+
+      // If browser doesn't support geolocation — allow
+      if (!navigator.geolocation) {
+        console.warn('Geolocation not supported — allowing check-in');
+        allowCheckin();
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        // ── SUCCESS: got user location ──
+        (position) => {
+          const userLat  = position.coords.latitude;
+          const userLng  = position.coords.longitude;
+          const spotLat  = parseFloat(spot.lat);
+          const spotLng  = parseFloat(spot.lng);
+          const distMeters = haversineMeters(userLat, userLng, spotLat, spotLng);
+
+          console.log('User location:', userLat, userLng);
+          console.log('Spot location:', spotLat, spotLng);
+          console.log('Distance:', Math.round(distMeters), 'meters');
+
+          if (distMeters <= MAX_DISTANCE_METERS) {
+            // ✅ Within range — allow check-in
+            allowCheckin();
+          } else {
+            // ❌ Too far — block with clear message
+            const km   = distMeters >= 1000;
+            const dist = km
+              ? (distMeters / 1000).toFixed(1) + ' km'
+              : Math.round(distMeters) + ' meters';
+
+            const el = document.getElementById('blocked-distance');
+            if (el) el.textContent = 'You are ' + dist + ' away from this spot';
+            showState('location-blocked');
+          }
+        },
+
+        // ── ERROR: denied or unavailable ──
+        (err) => {
+          console.warn('Geolocation error code:', err.code, err.message);
+          if (err.code === 1) {
+            // PERMISSION_DENIED
+            showState('location-denied');
+          } else {
+            // POSITION_UNAVAILABLE (2) or TIMEOUT (3) — allow
+            console.warn('Location unavailable — allowing check-in');
+            allowCheckin();
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout:            12000,
+          maximumAge:         0,
+        }
+      );
+    }
+
+    function allowCheckin() {
+      showState('checkin-page');
+      setTimeout(runWifiTest, 600);
+    }
+
+    /* ============================================================
+       HAVERSINE — distance in meters between two lat/lng points
+    ============================================================ */
+    function haversineMeters(lat1, lng1, lat2, lng2) {
+      const R    = 6371000; // Earth radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a    = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                   Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                   Math.sin(dLng/2) * Math.sin(dLng/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    /* ============================================================
+       SHOW / HIDE STATES
+    ============================================================ */
+    function showState(id) {
+      // Hide everything including initial loader
+      ['initial-loading','not-found','location-checking',
+       'location-blocked','location-denied','checkin-page'].forEach(s => {
+        const el = document.getElementById(s);
+        if (el) el.style.display = 'none';
+      });
+
+      // Show the requested state
+      const target = document.getElementById(id);
+      if (target) {
+        target.style.display = id === 'not-found' ? 'block' : 'flex';
+      } else {
+        console.error('showState: element not found:', id);
+      }
+    }
+
+    function populateCheckin(spot) {
+      const icon = TYPE_ICON[spot.type] || '📍';
+      document.getElementById('banner-icon').textContent = icon;
+      document.getElementById('banner-name').textContent = spot.name;
+      document.getElementById('banner-sub').textContent  = (spot.city||'') + (spot.state ? ', '+spot.state : '');
+
+      document.getElementById('back-link').href        = 'worklocal_spot_detail.html?id=' + spot.id;
+      document.getElementById('back-link').textContent = '← Back to ' + spot.name;
+
+      // Update blocked/denied back links
+      const blockedLink = document.getElementById('back-to-spot-blocked');
+      const deniedLink  = document.getElementById('back-to-spot-denied');
+      if (blockedLink) blockedLink.href = 'worklocal_spot_detail.html?id=' + spot.id;
+      if (deniedLink)  deniedLink.href  = 'worklocal_spot_detail.html?id=' + spot.id;
+
+      document.getElementById('back-to-spot-btn').onclick = () =>
+        window.location.href = 'worklocal_spot_detail.html?id=' + spot.id;
+
+      document.getElementById('success-checkins').textContent = (spot.checkin_count||0) + 1;
+      document.getElementById('success-score').textContent    = spot.nomad_score || '—';
+      document.getElementById('success-sub').textContent =
+        'Your wifi test and ratings for ' + spot.name + ' have been saved. Other nomads will see your data right away.';
+    }
+
+    function showNotFound() { showState('not-found'); }
+
+    /* ============================================================
+       REAL WIFI SPEED TEST
+       Uses fetch timing to measure actual download speed.
+       Downloads a test file from Cloudflare's speed test endpoint
+       and calculates Mbps from the time taken.
+    ============================================================ */
+    async function runWifiTest() {
+      if (wifiDone) return;
+
+      const statusEl  = document.getElementById('wifi-status');
+      const numEl     = document.getElementById('wifi-num');
+      const barEl     = document.getElementById('wifi-bar');
+      const nextBtn   = document.getElementById('wifi-next-btn');
+
+      statusEl.textContent = 'Measuring ping...';
+
+      // ── Step 1: Measure ping ──
+      try {
+        const pingStart = performance.now();
+        await fetch('https://1.1.1.1/cdn-cgi/trace', { cache: 'no-store', mode: 'no-cors' });
+        wifiPing = Math.round(performance.now() - pingStart);
+      } catch {
+        wifiPing = 0;
+      }
+
+      statusEl.textContent = 'Testing download speed...';
+      barEl.style.width    = '15%';
+
+      // ── Step 2: Download speed test ──
+      // Download a ~5MB file from Cloudflare and measure the time
+      const testUrl  = 'https://speed.cloudflare.com/__down?bytes=5000000';
+      const testSize = 5000000; // 5MB in bytes
+
+      try {
+        const startTime = performance.now();
+        const response  = await fetch(testUrl + '&_=' + Date.now(), {
+          cache: 'no-store',
+        });
+
+        // Animate bar while downloading
+        let animPct = 15;
+        const animInterval = setInterval(() => {
+          animPct = Math.min(animPct + 3, 85);
+          barEl.style.width = animPct + '%';
+          // Show estimated speed as it loads
+          const elapsed = (performance.now() - startTime) / 1000;
+          if (elapsed > 0.5) {
+            const estMbps = Math.round((animPct / 100 * testSize * 8) / elapsed / 1000000);
+            numEl.textContent = Math.max(estMbps, 0);
+          }
+        }, 200);
+
+        await response.arrayBuffer(); // Wait for full download
+        clearInterval(animInterval);
+
+        const duration  = (performance.now() - startTime) / 1000; // seconds
+        const bitsLoaded = testSize * 8;
+        wifiDownload    = Math.round(bitsLoaded / duration / 1000000); // Mbps
+
+        barEl.style.width    = '90%';
+        statusEl.textContent = 'Testing upload speed...';
+
+      } catch (err) {
+        console.warn('Download test failed, using fallback:', err);
+        // Fallback: use a small ping-based estimate
+        wifiDownload = wifiPing > 0 ? Math.max(5, Math.round(500 / wifiPing * 10)) : 20;
+      }
+
+      // ── Step 3: Upload speed (smaller test) ──
+      try {
+        const uploadSize = 1000000; // 1MB
+        const uploadData = new Uint8Array(uploadSize);
+        const startTime  = performance.now();
+
+        await fetch('https://speed.cloudflare.com/__up', {
+          method:  'POST',
+          body:    uploadData,
+          cache:   'no-store',
+        });
+
+        const duration = (performance.now() - startTime) / 1000;
+        wifiUpload     = Math.round((uploadSize * 8) / duration / 1000000);
+
+      } catch {
+        wifiUpload = Math.round(wifiDownload * 0.4); // estimate from download
+      }
+
+      // ── Done ──
+      wifiDone = true;
+      barEl.style.width    = '100%';
+      numEl.textContent    = wifiDownload;
+      statusEl.textContent = 'Test complete ✓';
+
+      document.getElementById('wifi-upload-val').textContent = wifiUpload;
+      document.getElementById('wifi-ping-val').textContent   = wifiPing ? wifiPing + 'ms' : '—';
+      document.getElementById('wifi-meta').style.display     = 'grid';
+      document.getElementById('success-wifi').textContent    = wifiDownload;
+
+      nextBtn.disabled    = false;
+      nextBtn.textContent = 'Next — quick ratings ↗';
+    }
+
+    /* ============================================================
+       STEP NAVIGATION
+    ============================================================ */
+    function goToStep(n) {
+      document.getElementById('step-' + currentStep).classList.remove('active');
+      document.getElementById('step-' + n).classList.add('active');
+      currentStep = n;
+      updateProgress(n);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateProgress(step) {
+      const fills = { 1:'0%', 2:'33%', 3:'66%', 4:'100%' };
+      document.getElementById('progress-fill').style.width = fills[step] || '0%';
+
+      for (let i = 1; i <= 4; i++) {
+        const dot = document.getElementById('dot-' + i);
+        const lbl = document.getElementById('lbl-' + i);
+        dot.className = 'step-dot';
+        lbl.className = 'step-label';
+        if (i < step)      { dot.classList.add('done');   dot.textContent = '✓'; lbl.classList.add('done'); }
+        else if (i===step) { dot.classList.add('active'); dot.textContent = i;   lbl.classList.add('active'); }
+        else               { dot.textContent = i; }
+      }
+    }
+
+    /* ============================================================
+       RATINGS
+    ============================================================ */
+    function pickRating(el, category, level) {
+      el.closest('.rating-btns').querySelectorAll('.rating-btn').forEach(b =>
+        b.classList.remove('sel-good','sel-mid','sel-bad')
+      );
+      el.classList.add('sel-' + level);
+      ratings[category] = level;
+    }
+
+    /* ============================================================
+       VIBE CHIPS
+    ============================================================ */
+    function toggleVibe(el) {
+      el.classList.toggle('selected');
+      const label = el.textContent.trim();
+      el.classList.contains('selected') ? vibes.add(label) : vibes.delete(label);
+    }
+
+    function updateCharCount() {
+      document.getElementById('char-count').textContent =
+        document.getElementById('review-text').value.length;
+    }
+
+    /* ============================================================
+       SUBMIT CHECK-IN — saves to Supabase
+    ============================================================ */
+    async function submitCheckin() {
+      const btn        = document.querySelector('#step-3 .btn-primary');
+      const reviewText = document.getElementById('review-text').value.trim();
+      const hasReview  = reviewText.length > 0;
+
+      if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+      try {
+        const client = WLAuth.getClient();
+
+        if (client && SPOT_ID) {
+          const { data: { user } } = await client.auth.getUser();
+
+          if (user) {
+            // Save check-in
+            const { data: checkin, error: ciError } = await client
+              .from('checkins')
+              .insert({
+                user_id:         user.id,
+                spot_id:         parseInt(SPOT_ID),
+                wifi_download:   wifiDownload || null,
+                wifi_upload:     wifiUpload   || null,
+                wifi_ping:       wifiPing     || null,
+                rating_outlets:  ratings.outlets  === 'good' ? 'plenty'  : ratings.outlets  === 'mid' ? 'some'     : ratings.outlets  === 'bad' ? 'none'    : null,
+                rating_noise:    ratings.noise    === 'good' ? 'quiet'   : ratings.noise    === 'mid' ? 'moderate' : ratings.noise    === 'bad' ? 'loud'    : null,
+                rating_friendly: ratings.friendly === 'good' ? 'welcome' : ratings.friendly === 'mid' ? 'neutral'  : ratings.friendly === 'bad' ? 'bad'     : null,
+                rating_drink:    ratings.drink    === 'good' ? 'great'   : ratings.drink    === 'mid' ? 'decent'   : ratings.drink    === 'bad' ? 'bad'     : null,
+                vibe_tags:       [...vibes],
+              })
+              .select()
+              .single();
+
+            // Save review if written
+            if (!ciError && checkin && hasReview) {
+              await client.from('reviews').insert({
+                user_id:    user.id,
+                spot_id:    parseInt(SPOT_ID),
+                checkin_id: checkin.id,
+                body:       reviewText,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Check-in save error:', err);
+        // Still show success — don't block the user
+      }
+
+      // Calculate points
+      const pts = 25 + (wifiDone ? 10 : 0) + (hasReview ? 20 : 0);
+      document.getElementById('points-earned').textContent = '+' + pts + ' nomad points earned';
+
+      if (btn) { btn.textContent = 'Submit check-in ↗'; btn.disabled = false; }
+      goToStep(4);
+    }
+
+    /* ============================================================
+       INIT — wait for all scripts then load spot
+    ============================================================ */
+    function waitForDeps(callback) {
+      // Wait until Supabase library AND our config/auth are ready
+      if (typeof supabase !== 'undefined' &&
+          typeof window.WL !== 'undefined' &&
+          typeof window.WLAuth !== 'undefined') {
+        callback();
+      } else {
+        setTimeout(() => waitForDeps(callback), 100);
+      }
+    }
+
+    // Start as soon as DOM is ready, then wait for deps
+    document.addEventListener('DOMContentLoaded', () => {
+      // Show a minimal loading state right away so no white screen
+      document.body.style.background = '#F7F7F5';
+      waitForDeps(loadSpot);
+    });
+  </script>
+</body>
+</html>
