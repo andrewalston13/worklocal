@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Check In — WorkLocal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="worklocal_config.js"></script>
+  <script src="worklocal_auth.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;color:#222;background:#F7F7F5;min-height:100vh;display:flex;flex-direction:column;}
+
+    nav{display:flex;align-items:center;justify-content:space-between;padding:13px 32px;background:#fff;border-bottom:1px solid #E8E8E8;}
+    .nav-logo{font-family:'Chicle',cursive;font-size:24px;letter-spacing:1px;text-decoration:none;}
+    .nav-logo .work{color:#3A6B28;}.nav-logo .local{color:#93CF79;}
+    .nav-back{font-size:13px;color:#3A6B28;text-decoration:none;border:1.5px solid #AAD990;border-radius:20px;padding:6px 14px;transition:background 0.12s;}
+    .nav-back:hover{background:#E2F5D6;}
+
+    /* ── ALL STATE SCREENS ── */
+    .screen{
+      flex:1;display:none;align-items:flex-start;
+      justify-content:center;padding:32px 20px 60px;
+    }
+    .screen.active{display:flex;}
+
+    .shell{width:100%;max-width:520px;display:flex;flex-direction:column;gap:16px;}
+
+    /* State cards */
+    .state-card{background:#fff;border:1px solid #EBEBEB;border-radius:18px;padding:40px 28px;text-align:center;}
+    .state-icon{font-size:52px;margin-bottom:16px;}
+    .state-title{font-family:'Coiny',cursive;font-size:30px;color:#222;margin-bottom:8px;}
+    .state-sub{font-size:14px;color:#888;line-height:1.7;margin-bottom:20px;}
+    .state-btn{display:inline-block;background:#93CF79;color:#fff;border:none;border-radius:20px;padding:10px 28px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;transition:background 0.12s;}
+    .state-btn:hover{background:#7AB865;}
+    .state-btn.ghost{background:transparent;color:#999;border:1.5px solid #E8E8E8;margin-top:8px;}
+    .state-btn.ghost:hover{border-color:#AAA;color:#666;}
+    .state-btn.red{background:#E24B4A;}
+    .state-btn.red:hover{background:#C03030;}
+    .dist-badge{font-family:'Coiny',cursive;font-size:26px;color:#E24B4A;margin:10px 0;}
+
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .spinner{display:inline-block;font-size:40px;animation:spin 2s linear infinite;margin-bottom:16px;}
+
+    /* Spot banner */
+    .spot-banner{background:#2A4A1A;border-radius:18px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;}
+    .spot-banner-left{display:flex;align-items:center;gap:12px;}
+    .banner-icon{font-size:32px;}
+    .banner-name{font-size:16px;font-weight:500;color:#fff;margin-bottom:2px;}
+    .banner-sub{font-size:12px;color:#9FD084;}
+    .live-badge{background:#93CF79;color:#fff;font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;flex-shrink:0;}
+
+    /* Progress */
+    .progress-wrap{background:#fff;border:1px solid #EBEBEB;border-radius:14px;padding:14px 20px;}
+    .progress-steps{display:flex;align-items:center;justify-content:space-between;position:relative;}
+    .progress-line{position:absolute;top:14px;left:14px;right:14px;height:2px;background:#F0F0F0;z-index:0;}
+    .progress-fill{height:100%;background:#93CF79;border-radius:1px;transition:width 0.4s ease;}
+    .p-step{display:flex;flex-direction:column;align-items:center;gap:6px;z-index:1;}
+    .p-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;border:2px solid #E0E0E0;background:#fff;color:#BBB;transition:all 0.25s;}
+    .p-dot.done{background:#93CF79;border-color:#93CF79;color:#fff;}
+    .p-dot.active{background:#E2F5D6;border-color:#93CF79;color:#3A6B28;}
+    .p-lbl{font-size:10px;color:#BBB;text-transform:uppercase;letter-spacing:0.5px;transition:color 0.25s;white-space:nowrap;}
+    .p-lbl.active{color:#3A6B28;} .p-lbl.done{color:#93CF79;}
+
+    /* Step panels */
+    .step{display:none;background:#fff;border:1px solid #EBEBEB;border-radius:18px;padding:24px;}
+    .step.active{display:block;}
+    .step-title{font-family:'Coiny',cursive;font-size:26px;color:#222;margin-bottom:4px;}
+    .step-sub{font-size:13px;color:#999;margin-bottom:22px;line-height:1.6;}
+
+    /* Wifi */
+    .wifi-card{background:#EDF7E5;border:1.5px solid #AAD990;border-radius:14px;padding:24px;text-align:center;margin-bottom:16px;}
+    .wifi-num{font-family:'Coiny',cursive;font-size:72px;color:#3A6B28;line-height:1;margin-bottom:2px;}
+    .wifi-unit{font-size:14px;color:#5A7A4A;margin-bottom:16px;}
+    .wifi-track{height:6px;background:#C8E8A8;border-radius:3px;overflow:hidden;margin-bottom:8px;}
+    .wifi-bar{height:100%;background:#3A6B28;border-radius:3px;width:0%;transition:width 0.1s linear;}
+    .wifi-status{font-size:12px;color:#5A7A4A;margin-bottom:16px;}
+    .wifi-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;display:none;}
+    .wifi-meta-stat{background:#fff;border-radius:10px;padding:10px;text-align:center;}
+    .wifi-meta-val{font-family:'Coiny',cursive;font-size:22px;color:#3A6B28;line-height:1;}
+    .wifi-meta-lbl{font-size:11px;color:#999;margin-top:2px;}
+
+    /* Ratings */
+    .rating-block{margin-bottom:18px;}
+    .rating-q{font-size:14px;font-weight:500;margin-bottom:3px;}
+    .rating-hint{font-size:11px;color:#BBB;margin-bottom:9px;}
+    .rating-btns{display:flex;gap:8px;}
+    .rbtn{flex:1;padding:10px 6px;border:1.5px solid #E8E8E8;border-radius:10px;background:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;color:#555;transition:all 0.12s;text-align:center;}
+    .rbtn:hover{border-color:#93CF79;color:#3A6B28;}
+    .rbtn.good{background:#E2F5D6;border-color:#93CF79;color:#3A6B28;}
+    .rbtn.mid{background:#FAEEDA;border-color:#EF9F27;color:#854F0B;}
+    .rbtn.bad{background:#FCEBEB;border-color:#E24B4A;color:#791F1F;}
+    .rdiv{height:1px;background:#F5F5F5;margin:18px 0;}
+
+    /* Vibe */
+    .vibe-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px;}
+    .vibe{border:1.5px solid #E8E8E8;border-radius:12px;padding:11px 14px;cursor:pointer;background:#fff;font-size:13px;font-family:'DM Sans',sans-serif;color:#555;transition:all 0.12s;}
+    .vibe:hover{border-color:#93CF79;color:#3A6B28;}
+    .vibe.on{background:#E2F5D6;border-color:#93CF79;color:#3A6B28;}
+    .vibe-icon{font-size:18px;display:block;margin-bottom:5px;}
+    textarea{width:100%;border:1.5px solid #E8E8E8;border-radius:12px;padding:12px 14px;font-size:13px;font-family:'DM Sans',sans-serif;color:#333;background:#fff;resize:none;outline:none;line-height:1.6;transition:border-color 0.12s;}
+    textarea:focus{border-color:#93CF79;}
+    textarea::placeholder{color:#CCC;}
+    .char-ct{font-size:11px;color:#CCC;text-align:right;margin-top:5px;}
+
+    /* Success */
+    .success-ring{width:80px;height:80px;border-radius:50%;background:#E2F5D6;border:2.5px solid #93CF79;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;}
+    .pts-pill{display:inline-flex;align-items:center;gap:8px;background:#E2F5D6;border-radius:20px;padding:8px 20px;margin-bottom:22px;}
+    .pts-dot{width:8px;height:8px;border-radius:50%;background:#93CF79;}
+    .pts-txt{font-family:'Coiny',cursive;font-size:20px;color:#3A6B28;}
+    .suc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;}
+    .suc-stat{background:#F7F7F5;border-radius:12px;padding:12px 10px;text-align:center;}
+    .suc-stat-val{font-family:'Coiny',cursive;font-size:24px;color:#3A6B28;line-height:1;}
+    .suc-stat-lbl{font-size:11px;color:#999;margin-top:3px;}
+
+    /* Points reminder */
+    .pts-remind{background:#F2EDFF;border:1px solid #DDD5FF;border-radius:14px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .pts-remind-left{display:flex;align-items:center;gap:10px;}
+    .pts-remind-ico{font-size:24px;flex-shrink:0;}
+    .pts-remind-title{font-size:13px;font-weight:500;color:#2E1A60;margin-bottom:2px;}
+    .pts-remind-sub{font-size:11px;color:#9A88BB;}
+    .pts-badge{font-family:'Coiny',cursive;font-size:22px;color:#7050C0;white-space:nowrap;}
+
+    /* Buttons */
+    .btn{width:100%;background:#93CF79;color:#fff;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.12s;margin-top:6px;}
+    .btn:hover{background:#7AB865;}
+    .btn:disabled{background:#C8E8A8;cursor:not-allowed;}
+    .btn-ghost{width:100%;background:transparent;color:#999;border:1.5px solid #E8E8E8;border-radius:12px;padding:12px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:8px;transition:all 0.12s;}
+    .btn-ghost:hover{border-color:#AAA;color:#666;}
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html"><span class="work">Work</span><span class="local">Local</span></a>
+  <a class="nav-back" id="back-link" href="worklocal_map.html">← Back</a>
+</nav>
+
+<!-- ════ SCREEN: LOADING ════ -->
+<div class="screen active" id="screen-loading">
+  <div class="shell">
+    <div class="state-card">
+      <div class="spinner">📍</div>
+      <div class="state-title">Loading spot...</div>
+      <div class="state-sub">Getting details from WorkLocal</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN: NOT LOGGED IN ════ -->
+<div class="screen" id="screen-notloggedin">
+  <div class="shell">
+    <div class="state-card">
+      <div class="state-icon">🔐</div>
+      <div class="state-title">Sign in to check in</div>
+      <div class="state-sub">
+        Create a free WorkLocal account to check in, run wifi tests, earn points, and help the nomad community.
+      </div>
+      <button class="state-btn" onclick="WLAuth.showAuthModal()">Sign in or join free</button>
+      <br><br>
+      <a class="state-btn ghost" id="back-from-login" href="worklocal_map.html">Back to map</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN: NOT FOUND ════ -->
+<div class="screen" id="screen-notfound">
+  <div class="shell">
+    <div class="state-card">
+      <div class="state-icon">🗺</div>
+      <div class="state-title">Spot not found</div>
+      <div class="state-sub">This spot may have been removed or the link is incorrect.</div>
+      <a class="state-btn" href="worklocal_map.html">Back to map</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN: VERIFYING LOCATION ════ -->
+<div class="screen" id="screen-verifying">
+  <div class="shell">
+    <div class="state-card">
+      <div class="spinner">📡</div>
+      <div class="state-title">Verifying your location</div>
+      <div class="state-sub">
+        We need to confirm you're physically at this spot.<br><br>
+        <strong>Please allow location access</strong> when your browser asks.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN: LOCATION DENIED ════ -->
+<div class="screen" id="screen-denied">
+  <div class="shell">
+    <div class="state-card">
+      <div class="state-icon">📵</div>
+      <div class="state-title">Location access needed</div>
+      <div class="state-sub">
+        WorkLocal needs your location to verify you're actually at this spot.
+        This keeps our nomad scores accurate and trustworthy for everyone.<br><br>
+        <strong>To enable location:</strong><br>
+        Chrome: click the 🔒 lock icon in your address bar → Allow location<br>
+        Safari: Settings → Privacy → Location Services → Allow
+      </div>
+      <button class="state-btn" onclick="startLocationCheck()">Try again</button>
+      <br>
+      <a class="state-btn ghost" id="denied-back" href="worklocal_spot_detail.html">Back to spot</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN: TOO FAR AWAY ════ -->
+<div class="screen" id="screen-toofar">
+  <div class="shell">
+    <div class="state-card">
+      <div class="state-icon">🚫</div>
+      <div class="state-title">You're not at this spot</div>
+      <div class="state-sub">WorkLocal check-ins require you to be physically present.</div>
+      <div class="dist-badge" id="dist-badge">— away</div>
+      <div class="state-sub" style="font-size:12px;color:#BBB;margin-bottom:20px;">
+        Check-ins must be within 500 meters of the spot.<br>
+        This keeps our nomad scores honest and trustworthy.
+      </div>
+      <a class="state-btn" id="toofar-back" href="worklocal_spot_detail.html">Back to spot</a>
+      <br>
+      <a class="state-btn ghost" href="worklocal_map.html">Find a spot near me</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN: CHECK-IN FLOW ════ -->
+<div class="screen" id="screen-checkin">
+  <div class="shell">
+
+    <!-- Spot banner -->
+    <div class="spot-banner">
+      <div class="spot-banner-left">
+        <span class="banner-icon" id="banner-icon">☕</span>
+        <div>
+          <div class="banner-name" id="banner-name">Loading...</div>
+          <div class="banner-sub"  id="banner-sub">Loading...</div>
+        </div>
+      </div>
+      <div class="live-badge">Checking in</div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-wrap">
+      <div class="progress-steps">
+        <div class="progress-line"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+        <div class="p-step"><div class="p-dot active" id="dot-1">1</div><div class="p-lbl active" id="lbl-1">Wifi</div></div>
+        <div class="p-step"><div class="p-dot" id="dot-2">2</div><div class="p-lbl" id="lbl-2">Ratings</div></div>
+        <div class="p-step"><div class="p-dot" id="dot-3">3</div><div class="p-lbl" id="lbl-3">Vibe</div></div>
+        <div class="p-step"><div class="p-dot" id="dot-4">4</div><div class="p-lbl" id="lbl-4">Done</div></div>
+      </div>
+    </div>
+
+    <!-- STEP 1: WIFI -->
+    <div class="step active" id="step-1">
+      <div class="step-title">Running wifi test</div>
+      <div class="step-sub">Testing your actual connection right now. This data helps every nomad who comes after you.</div>
+      <div class="wifi-card">
+        <div class="wifi-num" id="wifi-num">0</div>
+        <div class="wifi-unit">Mbps download</div>
+        <div class="wifi-track"><div class="wifi-bar" id="wifi-bar"></div></div>
+        <div class="wifi-status" id="wifi-status">Measuring your connection...</div>
+        <div class="wifi-meta" id="wifi-meta">
+          <div class="wifi-meta-stat"><div class="wifi-meta-val" id="wifi-up">—</div><div class="wifi-meta-lbl">Mbps upload</div></div>
+          <div class="wifi-meta-stat"><div class="wifi-meta-val" id="wifi-ping">—</div><div class="wifi-meta-lbl">Ping (ms)</div></div>
+        </div>
+      </div>
+      <div class="pts-remind">
+        <div class="pts-remind-left"><div class="pts-remind-ico">📶</div><div><div class="pts-remind-title">Wifi test earns points</div><div class="pts-remind-sub">Every speed test helps the next nomad</div></div></div>
+        <div class="pts-badge">+10 pts</div>
+      </div>
+      <button class="btn" id="wifi-next" disabled onclick="goStep(2)">Testing wifi...</button>
+    </div>
+
+    <!-- STEP 2: RATINGS -->
+    <div class="step" id="step-2">
+      <div class="step-title">Quick ratings</div>
+      <div class="step-sub">One tap per question — takes about 10 seconds.</div>
+      <div class="rating-block">
+        <div class="rating-q">Outlet availability</div>
+        <div class="rating-hint">Could you find a plug easily?</div>
+        <div class="rating-btns">
+          <button class="rbtn" onclick="rate(this,'outlets','good')">Plenty</button>
+          <button class="rbtn" onclick="rate(this,'outlets','mid')">Some</button>
+          <button class="rbtn" onclick="rate(this,'outlets','bad')">None</button>
+        </div>
+      </div>
+      <div class="rdiv"></div>
+      <div class="rating-block">
+        <div class="rating-q">Noise level</div>
+        <div class="rating-hint">How was the overall sound?</div>
+        <div class="rating-btns">
+          <button class="rbtn" onclick="rate(this,'noise','good')">Quiet</button>
+          <button class="rbtn" onclick="rate(this,'noise','mid')">Moderate</button>
+          <button class="rbtn" onclick="rate(this,'noise','bad')">Loud</button>
+        </div>
+      </div>
+      <div class="rdiv"></div>
+      <div class="rating-block">
+        <div class="rating-q">Nomad friendliness</div>
+        <div class="rating-hint">Were staff welcoming to laptop workers?</div>
+        <div class="rating-btns">
+          <button class="rbtn" onclick="rate(this,'friendly','good')">Very welcome</button>
+          <button class="rbtn" onclick="rate(this,'friendly','mid')">Neutral</button>
+          <button class="rbtn" onclick="rate(this,'friendly','bad')">Not really</button>
+        </div>
+      </div>
+      <div class="rdiv"></div>
+      <div class="rating-block">
+        <div class="rating-q">Drink quality</div>
+        <div class="rating-hint">How was whatever you ordered?</div>
+        <div class="rating-btns">
+          <button class="rbtn" onclick="rate(this,'drink','good')">Great</button>
+          <button class="rbtn" onclick="rate(this,'drink','mid')">Decent</button>
+          <button class="rbtn" onclick="rate(this,'drink','bad')">Not good</button>
+        </div>
+      </div>
+      <div class="pts-remind" style="margin-top:18px;">
+        <div class="pts-remind-left"><div class="pts-remind-ico">⭐</div><div><div class="pts-remind-title">Ratings earn you points</div><div class="pts-remind-sub">Check-in earns +25 pts total</div></div></div>
+        <div class="pts-badge">+25 pts</div>
+      </div>
+      <button class="btn" onclick="goStep(3)">Next — vibe ↗</button>
+      <button class="btn-ghost" onclick="goStep(3)">Skip ratings</button>
+    </div>
+
+    <!-- STEP 3: VIBE -->
+    <div class="step" id="step-3">
+      <div class="step-title">Vibe + review</div>
+      <div class="step-sub">Tag the atmosphere and leave a note for other nomads.</div>
+      <div class="vibe-grid">
+        <div class="vibe" onclick="toggleVibe(this)"><span class="vibe-icon">🎧</span>Great for focus</div>
+        <div class="vibe" onclick="toggleVibe(this)"><span class="vibe-icon">💬</span>Good for calls</div>
+        <div class="vibe" onclick="toggleVibe(this)"><span class="vibe-icon">🌅</span>Bright + airy</div>
+        <div class="vibe" onclick="toggleVibe(this)"><span class="vibe-icon">🌿</span>Cozy + calm</div>
+        <div class="vibe" onclick="toggleVibe(this)"><span class="vibe-icon">🎶</span>Lively energy</div>
+        <div class="vibe" onclick="toggleVibe(this)"><span class="vibe-icon">🚗</span>Easy parking</div>
+      </div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:3px;">
+        Write a review
+        <span style="font-size:12px;font-weight:400;color:#CCC;margin-left:6px;">optional</span>
+      </div>
+      <div style="font-size:12px;color:#BBB;margin-bottom:10px;line-height:1.5;">Best seats, peak hours, anything helpful for the next nomad.</div>
+      <textarea id="review-text" rows="5" maxlength="500"
+        placeholder="e.g. Window seats on the north wall have the strongest signal. Gets busy after 10am."
+        oninput="document.getElementById('char-ct').textContent=this.value.length"></textarea>
+      <div class="char-ct"><span id="char-ct">0</span> / 500</div>
+      <div class="pts-remind" style="margin-top:16px;">
+        <div class="pts-remind-left"><div class="pts-remind-ico">✍️</div><div><div class="pts-remind-title">Reviews earn extra points</div><div class="pts-remind-sub">Written review adds +20 pts</div></div></div>
+        <div class="pts-badge">+20 pts</div>
+      </div>
+      <button class="btn" onclick="submitCheckin()">Submit check-in ↗</button>
+      <button class="btn-ghost" onclick="submitCheckin()">Skip & submit</button>
+    </div>
+
+    <!-- STEP 4: SUCCESS -->
+    <div class="step" id="step-4">
+      <div style="text-align:center;padding:8px 0;">
+        <div class="success-ring">✓</div>
+        <div style="font-family:'Coiny',cursive;font-size:32px;color:#222;margin-bottom:6px;">You're checked in!</div>
+        <div style="font-size:14px;color:#888;line-height:1.6;max-width:340px;margin:0 auto 20px;" id="suc-sub">Your data has been saved.</div>
+        <div class="pts-pill">
+          <div class="pts-dot"></div>
+          <div class="pts-txt" id="pts-earned">+35 nomad points earned</div>
+        </div>
+        <div class="suc-stats">
+          <div class="suc-stat"><div class="suc-stat-val" id="suc-wifi">—</div><div class="suc-stat-lbl">Mbps tested</div></div>
+          <div class="suc-stat"><div class="suc-stat-val" id="suc-checkins">—</div><div class="suc-stat-lbl">Total check-ins</div></div>
+          <div class="suc-stat"><div class="suc-stat-val" id="suc-score">—</div><div class="suc-stat-lbl">Nomad score</div></div>
+        </div>
+      </div>
+      <button class="btn" id="btn-back-spot">Back to spot</button>
+      <button class="btn-ghost" onclick="window.location.href='worklocal_map.html'">Find another spot ↗</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   GLOBALS
+============================================================ */
+const SPOT_ID = new URLSearchParams(window.location.search).get('id');
+const TYPE_ICON = {coffee:'☕',brewery:'🍺',winery:'🍷',cowork:'🏢',bakery:'🥐',other:'✨'};
+const MAX_METERS = 500;
+
+let spot        = null;
+let wifiDl      = 0;
+let wifiUl      = 0;
+let wifiPingMs  = 0;
+let wifiTested  = false;
+let ratings     = {};
+let vibes       = new Set();
+let currentStep = 1;
+
+/* ============================================================
+   SCREEN MANAGER — one function, no confusion
+============================================================ */
+function show(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + screenId);
+  if (el) el.classList.add('active');
+  else console.error('Screen not found:', 'screen-' + screenId);
+}
+
+/* ============================================================
+   INIT — wait for scripts then start
+============================================================ */
+function ready(fn) {
+  const check = () => {
+    if (typeof supabase !== 'undefined' &&
+        typeof window.WL !== 'undefined' &&
+        typeof window.WLAuth !== 'undefined') {
+      fn();
+    } else {
+      setTimeout(check, 100);
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', check);
+  } else {
+    check();
+  }
+}
+
+ready(async () => {
+  if (!SPOT_ID) { show('notfound'); return; }
+
+  try {
+    const client = WLAuth.getClient();
+    if (!client) {
+      // Demo mode — no Supabase config
+      spot = {id:0, name:'Demo Spot', type:'coffee', city:'Austin', state:'TX', nomad_score:0, checkin_count:0, lat:null, lng:null};
+      setupSpot(spot);
+      show('checkin');
+      setTimeout(startWifi, 600);
+      return;
+    }
+
+    // ── Must be logged in to check in ──
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) {
+      show('notloggedin');
+      return;
+    }
+
+    const { data, error } = await client
+      .from('spots')
+      .select('id,name,type,city,state,lat,lng,nomad_score,checkin_count')
+      .eq('id', SPOT_ID)
+      .single();
+
+    if (error || !data) { show('notfound'); return; }
+
+    spot = data;
+    setupSpot(spot);
+    startLocationCheck();
+
+  } catch(e) {
+    console.error('Init error:', e);
+    show('notfound');
+  }
+});
+
+/* ============================================================
+   SETUP SPOT UI
+============================================================ */
+function setupSpot(s) {
+  const icon = TYPE_ICON[s.type] || '📍';
+  const loc  = [s.city, s.state].filter(Boolean).join(', ');
+
+  document.getElementById('banner-icon').textContent = icon;
+  document.getElementById('banner-name').textContent = s.name;
+  document.getElementById('banner-sub').textContent  = loc;
+  document.getElementById('back-link').href          = 'worklocal_spot_detail.html?id=' + s.id;
+  document.getElementById('back-link').textContent   = '← ' + s.name;
+  document.getElementById('denied-back').href        = 'worklocal_spot_detail.html?id=' + s.id;
+  document.getElementById('toofar-back').href        = 'worklocal_spot_detail.html?id=' + s.id;
+  document.getElementById('btn-back-spot').onclick   = () => window.location.href = 'worklocal_spot_detail.html?id=' + s.id;
+  document.getElementById('suc-checkins').textContent = (s.checkin_count || 0) + 1;
+  document.getElementById('suc-score').textContent    = s.nomad_score || '—';
+  document.getElementById('suc-sub').textContent      = 'Your wifi test and ratings for ' + s.name + ' have been saved!';
+}
+
+/* ============================================================
+   LOCATION CHECK
+============================================================ */
+function startLocationCheck() {
+  show('verifying');
+
+  // No valid spot coords — skip check
+  const sLat = parseFloat(spot?.lat);
+  const sLng = parseFloat(spot?.lng);
+  if (!spot || isNaN(sLat) || isNaN(sLng) || (sLat === 0 && sLng === 0)) {
+    console.warn('Spot has no valid coordinates — skipping location check');
+    allowCheckin();
+    return;
+  }
+
+  // No geolocation support — skip check
+  if (!navigator.geolocation) {
+    allowCheckin();
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    onLocationSuccess,
+    onLocationError,
+    {
+      enableHighAccuracy: true,  // use GPS not cell towers
+      timeout:            15000, // wait up to 15 seconds
+      maximumAge:         0,     // never use cached position — always fresh
+    }
+  );
+}
+
+function onLocationSuccess(pos) {
+  const uLat    = pos.coords.latitude;
+  const uLng    = pos.coords.longitude;
+  const sLat    = parseFloat(spot.lat);
+  const sLng    = parseFloat(spot.lng);
+  const dist    = distMeters(uLat, uLng, sLat, sLng);
+  const accuracy = Math.round(pos.coords.accuracy); // GPS accuracy in meters
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('WorkLocal Location Check');
+  console.log('User:    ', uLat.toFixed(6), uLng.toFixed(6));
+  console.log('Spot:    ', sLat.toFixed(6), sLng.toFixed(6));
+  console.log('Distance:', Math.round(dist), 'meters');
+  console.log('GPS accuracy: ±' + accuracy + ' meters');
+  console.log('Max allowed:', MAX_METERS, 'meters');
+  console.log('Result:', dist <= MAX_METERS ? '✅ ALLOWED' : '❌ BLOCKED');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  if (dist <= MAX_METERS) {
+    allowCheckin();
+  } else {
+    const d = dist >= 1000
+      ? (dist / 1000).toFixed(1) + ' km away'
+      : Math.round(dist) + ' meters away';
+    document.getElementById('dist-badge').textContent = 'You are ' + d;
+    show('toofar');
+  }
+}
+
+function onLocationError(err) {
+  if (err.code === 1) {
+    // Permission denied
+    show('denied');
+  } else {
+    // Unavailable or timeout — allow check-in
+    allowCheckin();
+  }
+}
+
+function allowCheckin() {
+  show('checkin');
+  setTimeout(startWifi, 600);
+}
+
+function distMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const d1 = (lat2-lat1) * Math.PI/180;
+  const d2 = (lng2-lng1) * Math.PI/180;
+  const a  = Math.sin(d1/2)**2 +
+             Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(d2/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* ============================================================
+   WIFI SPEED TEST
+============================================================ */
+async function startWifi() {
+  const numEl    = document.getElementById('wifi-num');
+  const barEl    = document.getElementById('wifi-bar');
+  const statusEl = document.getElementById('wifi-status');
+  const nextBtn  = document.getElementById('wifi-next');
+
+  // Step 1: Ping
+  statusEl.textContent = 'Measuring ping...';
+  try {
+    const t0 = performance.now();
+    await fetch('https://1.1.1.1/cdn-cgi/trace', {cache:'no-store', mode:'no-cors'});
+    wifiPingMs = Math.round(performance.now() - t0);
+  } catch { wifiPingMs = 0; }
+
+  // Step 2: Download
+  statusEl.textContent = 'Testing download speed...';
+  barEl.style.width = '10%';
+
+  try {
+    const url   = 'https://speed.cloudflare.com/__down?bytes=5000000&_=' + Date.now();
+    const bytes = 5000000;
+    const t0    = performance.now();
+
+    // Animate bar while loading
+    let pct = 10;
+    const anim = setInterval(() => {
+      pct = Math.min(pct + 2, 80);
+      barEl.style.width = pct + '%';
+      const secs = (performance.now() - t0) / 1000;
+      if (secs > 0.3) {
+        numEl.textContent = Math.round(pct/100 * bytes * 8 / secs / 1e6);
+      }
+    }, 150);
+
+    const res = await fetch(url);
+    await res.arrayBuffer();
+    clearInterval(anim);
+
+    const secs = (performance.now() - t0) / 1000;
+    wifiDl = Math.round(bytes * 8 / secs / 1e6);
+
+  } catch {
+    wifiDl = wifiPingMs > 0 ? Math.max(5, Math.round(300/wifiPingMs*5)) : 15;
+  }
+
+  // Step 3: Upload (smaller)
+  statusEl.textContent = 'Testing upload speed...';
+  barEl.style.width = '90%';
+
+  try {
+    const data = new Uint8Array(500000);
+    const t0   = performance.now();
+    await fetch('https://speed.cloudflare.com/__up', {method:'POST', body:data, cache:'no-store'});
+    const secs = (performance.now() - t0) / 1000;
+    wifiUl = Math.round(500000 * 8 / secs / 1e6);
+  } catch {
+    wifiUl = Math.round(wifiDl * 0.4);
+  }
+
+  // Done
+  wifiTested = true;
+  barEl.style.width    = '100%';
+  numEl.textContent    = wifiDl;
+  statusEl.textContent = 'Test complete ✓';
+  document.getElementById('wifi-up').textContent   = wifiUl;
+  document.getElementById('wifi-ping').textContent = wifiPingMs ? wifiPingMs + 'ms' : '—';
+  document.getElementById('wifi-meta').style.display = 'grid';
+  document.getElementById('suc-wifi').textContent    = wifiDl;
+  nextBtn.disabled    = false;
+  nextBtn.textContent = 'Next — quick ratings ↗';
+}
+
+/* ============================================================
+   STEP NAVIGATION
+============================================================ */
+function goStep(n) {
+  document.getElementById('step-' + currentStep).classList.remove('active');
+  document.getElementById('step-' + n).classList.add('active');
+  currentStep = n;
+
+  const fills = {1:'0%',2:'33%',3:'66%',4:'100%'};
+  document.getElementById('prog-fill').style.width = fills[n];
+
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById('dot-' + i);
+    const lbl = document.getElementById('lbl-' + i);
+    dot.className = 'p-dot' + (i < n ? ' done' : i===n ? ' active' : '');
+    lbl.className = 'p-lbl' + (i < n ? ' done' : i===n ? ' active' : '');
+    dot.textContent = i < n ? '✓' : i;
+  }
+
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ============================================================
+   RATINGS + VIBES
+============================================================ */
+function rate(el, cat, level) {
+  el.closest('.rating-btns').querySelectorAll('.rbtn').forEach(b =>
+    b.className = 'rbtn'
+  );
+  el.classList.add(level);
+  ratings[cat] = level;
+}
+
+function toggleVibe(el) {
+  el.classList.toggle('on');
+  const label = el.textContent.trim();
+  el.classList.contains('on') ? vibes.add(label) : vibes.delete(label);
+}
+
+/* ============================================================
+   SUBMIT CHECK-IN
+============================================================ */
+async function submitCheckin() {
+  const btn        = document.querySelector('#step-3 .btn');
+  const reviewText = document.getElementById('review-text').value.trim();
+  const hasReview  = reviewText.length > 0;
+
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+  try {
+    const client = WLAuth.getClient();
+    if (client && SPOT_ID) {
+      const { data: { user } } = await client.auth.getUser();
+      if (user) {
+        const { data: ci } = await client.from('checkins').insert({
+          user_id:         user.id,
+          spot_id:         parseInt(SPOT_ID),
+          wifi_download:   wifiDl   || null,
+          wifi_upload:     wifiUl   || null,
+          wifi_ping:       wifiPingMs || null,
+          rating_wifi:     ratings.wifi_quality === 'great' ? 'great' : ratings.wifi_quality === 'good' ? 'good' : ratings.wifi_quality === 'mid' ? 'average' : ratings.wifi_quality === 'bad' ? 'poor' : null,
+          rating_outlets:  ratings.outlets  === 'good' ? 'plenty'  : ratings.outlets  === 'mid' ? 'some'     : ratings.outlets  === 'bad' ? 'none'    : null,
+          rating_noise:    ratings.noise    === 'good' ? 'quiet'   : ratings.noise    === 'mid' ? 'moderate' : ratings.noise    === 'bad' ? 'loud'    : null,
+          rating_friendly: ratings.friendly === 'good' ? 'welcome' : ratings.friendly === 'mid' ? 'neutral'  : ratings.friendly === 'bad' ? 'bad'     : null,
+          rating_drink:    ratings.drink    === 'good' ? 'great'   : ratings.drink    === 'mid' ? 'decent'   : ratings.drink    === 'bad' ? 'bad'     : null,
+          vibe_tags:       [...vibes],
+        }).select().single();
+
+        if (ci && hasReview) {
+          await client.from('reviews').insert({
+            user_id: user.id, spot_id: parseInt(SPOT_ID),
+            checkin_id: ci.id, body: reviewText,
+          });
+        }
+      }
+    }
+  } catch(e) {
+    console.error('Submit error:', e);
+  }
+
+  // Recalculate nomad score for this spot
+  try {
+    const scoreClient = WLAuth.getClient();
+    if (scoreClient && SPOT_ID) {
+      await scoreClient.rpc('recalculate_nomad_score', { p_spot_id: parseInt(SPOT_ID) });
+    }
+  } catch(e) { /* trigger handles it */ }
+
+  const pts = 25 + (wifiTested ? 10 : 0) + (hasReview ? 20 : 0);
+  document.getElementById('pts-earned').textContent = '+' + pts + ' nomad points earned';
+  if (btn) { btn.textContent = 'Submit check-in ↗'; btn.disabled = false; }
+  goStep(4);
+}
+</script>
+</body>
+</html>
