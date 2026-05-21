@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Our Story — WorkLocal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="worklocal_config.js"></script>
+  <script src="worklocal_auth.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;color:#222;background:#F7F7F5;min-height:100vh;}
+
+    /* NAV */
+    nav{display:flex;align-items:center;justify-content:space-between;padding:13px 32px;background:#fff;border-bottom:1px solid #E8E8E8;position:sticky;top:0;z-index:100;}
+    .nav-logo{font-family:'Chicle',cursive;font-size:24px;letter-spacing:1px;text-decoration:none;}
+    .nav-logo .work{color:#3A6B28;}.nav-logo .local{color:#93CF79;}
+    .nav-right{display:flex;gap:20px;align-items:center;}
+    .nav-link{font-size:13px;color:#777;text-decoration:none;transition:color 0.12s;}
+    .nav-link:hover{color:#3A6B28;}
+    .nav-cta{background:#93CF79;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;}
+
+    /* HERO */
+    .hero{background:#1A2E0F;padding:72px 32px 80px;text-align:center;position:relative;overflow:hidden;}
+    .hero::before{
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse at 30% 50%, rgba(147,207,121,0.12) 0%, transparent 60%),
+                 radial-gradient(ellipse at 70% 30%, rgba(93,202,165,0.08) 0%, transparent 50%);
+    }
+    .hero-tag{display:inline-block;background:rgba(147,207,121,0.2);border:1px solid rgba(147,207,121,0.3);color:#93CF79;font-size:11px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:6px 16px;border-radius:20px;margin-bottom:20px;}
+    .hero-title{font-family:'Coiny',cursive;font-size:clamp(48px,7vw,80px);color:#fff;line-height:1;margin-bottom:16px;position:relative;}
+    .hero-title span{color:#93CF79;}
+    .hero-sub{font-size:17px;color:rgba(255,255,255,0.6);line-height:1.7;max-width:480px;margin:0 auto;font-style:italic;}
+
+    /* STORY SECTION */
+    .story{max-width:900px;margin:0 auto;padding:72px 32px;}
+
+    /* FOUNDERS PHOTO AREA */
+    .founders-section{margin-bottom:40px;}
+    .founders-photos{display:flex;flex-direction:column;gap:16px;position:relative;}
+
+    /* BUBBLY PHOTO FRAMES */
+    .photo-frame{position:relative;}
+    .photo-frame img{
+      width:100%;
+      object-fit:cover;
+      display:block;
+    }
+    .photo-frame-main img{
+      border-radius:40% 60% 55% 45% / 45% 45% 55% 55%;
+      aspect-ratio:4/5;
+      box-shadow:0 20px 60px rgba(26,46,15,0.25);
+    }
+    .photo-frame-secondary img{
+      border-radius:55% 45% 40% 60% / 60% 55% 45% 40%;
+      aspect-ratio:5/4;
+      box-shadow:0 12px 40px rgba(26,46,15,0.2);
+      width:75%;
+      margin-left:auto;
+    }
+
+    /* Photo placeholder (before real photos uploaded) */
+    .photo-placeholder{
+      background:linear-gradient(135deg,#2A4A1A 0%,#1A2E0F 100%);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      color:rgba(255,255,255,0.3);font-size:13px;gap:8px;
+      width:100%;
+    }
+    .photo-placeholder-main{
+      border-radius:40% 60% 55% 45% / 45% 45% 55% 55%;
+      aspect-ratio:4/5;
+      box-shadow:0 20px 60px rgba(26,46,15,0.25);
+    }
+    .photo-placeholder-secondary{
+      border-radius:55% 45% 40% 60% / 60% 55% 45% 40%;
+      aspect-ratio:5/4;
+      width:75%;
+      margin-left:auto;
+      box-shadow:0 12px 40px rgba(26,46,15,0.2);
+    }
+    .photo-placeholder-icon{font-size:32px;opacity:0.4;}
+
+    /* Decorative dots */
+    .photo-dots{
+      position:absolute;bottom:-12px;left:-12px;
+      width:80px;height:80px;
+      background-image:radial-gradient(circle,#93CF79 1.5px,transparent 1.5px);
+      background-size:12px 12px;
+      opacity:0.4;
+      z-index:-1;
+    }
+    .photo-dots-2{
+      position:absolute;top:-8px;right:20%;
+      width:60px;height:60px;
+      background-image:radial-gradient(circle,#93CF79 1.5px,transparent 1.5px);
+      background-size:10px 10px;
+      opacity:0.3;
+      z-index:-1;
+    }
+
+    /* STORY TEXT */
+    .story-text{padding-top:8px;}
+    .founders-names{font-family:'Coiny',cursive;font-size:36px;color:#1A2E0F;margin-bottom:4px;line-height:1;}
+    .founders-title{font-size:12px;font-weight:500;color:#93CF79;text-transform:uppercase;letter-spacing:1px;margin-bottom:24px;}
+    .story-text p{font-size:16px;line-height:1.85;color:#444;margin-bottom:18px;}
+    .story-text p strong{color:#1A2E0F;font-weight:500;}
+    .story-text p em{color:#3A6B28;font-style:italic;}
+
+    /* ORIGIN CARD */
+    .origin-card{background:#1A2E0F;border-radius:24px;padding:36px 40px;margin-bottom:64px;position:relative;overflow:hidden;}
+    .origin-card::before{
+      content:'';position:absolute;top:-40px;right:-40px;
+      width:200px;height:200px;
+      background:radial-gradient(circle,rgba(147,207,121,0.15) 0%,transparent 70%);
+    }
+    .origin-card-tag{font-size:10px;font-weight:500;color:#93CF79;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;}
+    .origin-card-title{font-family:'Coiny',cursive;font-size:32px;color:#fff;margin-bottom:16px;line-height:1.1;}
+    .origin-card-title span{color:#93CF79;}
+    .origin-card p{font-size:15px;line-height:1.8;color:rgba(255,255,255,0.65);}
+    .origin-card p + p{margin-top:14px;}
+
+    /* MISSION */
+    .mission-section{margin-bottom:64px;}
+    .mission-label{font-size:11px;font-weight:500;color:#93CF79;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;}
+    .mission-statement{font-family:'Coiny',cursive;font-size:clamp(28px,4vw,42px);color:#1A2E0F;line-height:1.2;margin-bottom:0;}
+    .mission-statement span{color:#93CF79;}
+
+    /* VALUES */
+    .values-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:64px;}
+    .value-card{background:#fff;border:1px solid #EBEBEB;border-radius:20px;padding:24px 22px;}
+    .value-icon{font-size:28px;margin-bottom:12px;}
+    .value-title{font-family:'Coiny',cursive;font-size:22px;color:#222;margin-bottom:6px;}
+    .value-desc{font-size:13px;color:#888;line-height:1.7;}
+
+    /* JOIN CTA */
+    .join-section{background:#E2F5D6;border-radius:24px;padding:48px 40px;text-align:center;margin-bottom:32px;}
+    .join-title{font-family:'Coiny',cursive;font-size:40px;color:#1A2E0F;margin-bottom:10px;}
+    .join-sub{font-size:15px;color:#5A7A4A;line-height:1.7;max-width:420px;margin:0 auto 28px;}
+    .join-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+    .join-btn-primary{background:#3A6B28;color:#fff;border:none;border-radius:20px;padding:12px 28px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;transition:background 0.12s;}
+    .join-btn-primary:hover{background:#2A4A1A;}
+    .join-btn-ghost{background:transparent;color:#3A6B28;border:2px solid #3A6B28;border-radius:20px;padding:11px 28px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;transition:all 0.12s;}
+    .join-btn-ghost:hover{background:#3A6B28;color:#fff;}
+
+    /* FOOTER */
+    footer{text-align:center;padding:32px;font-size:12px;color:#BBB;}
+
+    /* Side by side equal bubble photos */
+    .photo-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 56px;
+      position: relative;
+    }
+    .bubble-frame {
+      position: relative;
+      overflow: hidden;
+    }
+    .bubble-frame img {
+      width: 100%;
+      height: 380px;
+      object-fit: cover;
+      display: block;
+    }
+    .bubble-frame-a img {
+      border-radius: 42% 58% 50% 50% / 48% 44% 56% 52%;
+      box-shadow: 0 20px 50px rgba(26,46,15,0.22);
+    }
+    .bubble-frame-b img {
+      border-radius: 58% 42% 46% 54% / 54% 56% 44% 46%;
+      box-shadow: 0 20px 50px rgba(26,46,15,0.22);
+    }
+
+    @media(max-width:680px){
+      .photo-pair { grid-template-columns: 1fr; }
+      .bubble-frame img { height: 280px; }
+      .founders-section{grid-template-columns:1fr;}
+      .values-grid{grid-template-columns:1fr;}
+      .story{padding:48px 20px;}
+      .origin-card{padding:28px 24px;}
+      .join-section{padding:36px 24px;}
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html"><span class="work">Work</span><span class="local">Local</span></a>
+  <div class="nav-right">
+    <a class="nav-link" href="worklocal_map.html">Explore</a>
+    <a class="nav-link" href="worklocal_about.html" style="color:#3A6B28;font-weight:500;">Our Story</a>
+    <a class="nav-cta" href="worklocal_map.html">Find a spot →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Our Story</div>
+  <div class="hero-title">Built on the road,<br><span>made for the road</span></div>
+  <div class="hero-sub">How a three-month road trip and a spotty WiFi connection turned into WorkLocal</div>
+</div>
+
+<!-- STORY -->
+<div class="story">
+
+  <!-- PHOTOS — side by side, equal size, bubbly frames -->
+  <div class="photo-pair">
+    <div class="photo-dots"></div>
+    <div class="photo-dots-2"></div>
+    <div class="bubble-frame bubble-frame-a">
+      <img src="about_photo_yosemite.jpg" alt="Andrew and Jenna at Yosemite"/>
+    </div>
+    <div class="bubble-frame bubble-frame-b">
+      <img src="about_photo_tent.jpg" alt="Andrew and Jenna on their road trip"/>
+    </div>
+  </div>
+
+  <!-- FOUNDERS + STORY -->
+  <div class="founders-section">
+    <div style="display:none;"><!-- photos moved above --></div>
+    <div class="story-text" style="grid-column:1/-1;">
+      <div class="founders-names">Andrew & Jenna</div>
+      <div class="founders-title">Founders of WorkLocal</div>
+      <p>Hey there! We are <strong>Andrew and Jenna</strong>, the founders of WorkLocal.</p>
+      <p>This project started back in <strong>2021 during a three-month road trip</strong> through the western United States. We were traveling with an ambitious goal: upload a new travel vlog to YouTube every other day while living on the road.</p>
+      <p>We could usually edit videos at night from our tent, but uploading them was another story. We needed <em>reliable WiFi, power outlets, and a comfortable place to work</em> for hours at a time.</p>
+      <p>The problem? Finding a good work spot wasn't easy. We'd show up to a cute local spot that looked perfect, only to realize there was no WiFi, no outlets, or nowhere comfortable to sit and work. This meant we often ended up at big chain coffee shops instead.</p>
+  </div>
+
+  <!-- ORIGIN CARD -->
+  <div class="origin-card">
+    <div class="origin-card-tag">The lightbulb moment</div>
+    <div class="origin-card-title">That's when the idea for<br><span>WorkLocal was born</span></div>
+    <p>We wanted to create a resource where remote workers, nomads, and creatives could easily discover work-friendly local spots — all in one place.</p>
+    <p>Five years later, we finally brought that idea to life. Real WiFi speeds, real outlet ratings, real nomad scores from people who've actually worked there. No chains, no fluff — just the spots worth working from.</p>
+  </div>
+
+  <!-- MISSION -->
+  <div class="mission-section">
+    <div class="mission-label">Our mission</div>
+    <div class="mission-statement">Help people find <span>great spots to work</span> while supporting the local businesses that make every town unique.</div>
+  </div>
+
+  <!-- VALUES -->
+  <div class="values-grid">
+    <div class="value-card">
+      <div class="value-icon">📍</div>
+      <div class="value-title">Local first</div>
+      <div class="value-desc">No chains. Every spot on WorkLocal is independently owned and adds something unique to its community.</div>
+    </div>
+    <div class="value-card">
+      <div class="value-icon">📶</div>
+      <div class="value-title">Real data</div>
+      <div class="value-desc">Every nomad score comes from verified check-ins — real WiFi speeds, real outlet ratings, real reviews from people who worked there.</div>
+    </div>
+    <div class="value-card">
+      <div class="value-icon">🤝</div>
+      <div class="value-title">Community built</div>
+      <div class="value-desc">WorkLocal gets better with every check-in. The more nomads contribute, the more trustworthy every score becomes.</div>
+    </div>
+  </div>
+
+  <!-- JOIN CTA -->
+  <div class="join-section">
+    <div class="join-title">Join the WorkLocal community</div>
+    <div class="join-sub">Help us build the most trusted resource for remote workers and nomads — one check-in at a time.</div>
+    <div class="join-btns">
+      <a class="join-btn-primary" href="worklocal_map.html">Find a spot near me</a>
+      <a class="join-btn-ghost" href="worklocal_map.html">Add a spot</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  © 2025 WorkLocal · <a href="index.html" style="color:#BBB;">Home</a> · <a href="worklocal_map.html" style="color:#BBB;">Explore</a>
+</footer>
+
+</body>
+</html>
