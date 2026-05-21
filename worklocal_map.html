@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WorkLocal — Explore Spots</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="worklocal_config.js"></script>
+  <script src="worklocal_auth.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <!-- Search uses database only — no Google Maps API needed -->
+
+  <style>
+    /* ============================================================
+       WORKLOCAL — MAP + SEARCH RESULTS PAGE
+    ============================================================ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      color: #222;
+      background: #F7F7F5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: #fff;
+      border-bottom: 1px solid #E8E8E8;
+      z-index: 200;
+      flex-shrink: 0;
+      overflow: visible;
+    }
+    .nav-logo { font-family: 'Chicle', cursive; font-size: 24px; letter-spacing: 1px; text-decoration: none; }
+    .nav-logo .work  { color: #3A6B28; }
+    .nav-logo .local { color: #93CF79; }
+
+    .nav-search {
+      display: flex;
+      background: #F7F7F5;
+      border: 1.5px solid #E0E0E0;
+      border-radius: 10px;
+      overflow: visible;
+      width: 380px;
+      position: relative;
+    }
+    .nav-search input {
+      flex: 1; background: transparent; border: none; outline: none;
+      padding: 9px 14px; font-size: 13px; color: #222;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .nav-search input::placeholder { color: #AAA; }
+
+
+    /* Search dropdown — appended to body, above everything including Leaflet */
+    #search-dropdown {
+      display: none;
+      position: fixed !important;
+      background: #fff;
+      border: 1px solid #E0E0E0;
+      border-radius: 12px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+      z-index: 100000 !important;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    .sd-item {
+      padding: 10px 14px; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; gap: 10px; color: #333;
+      border-bottom: 1px solid #F5F5F5; transition: background 0.1s;
+      min-width: 0;
+    }
+    .sd-item:last-child { border-bottom: none; }
+    .sd-item:hover, .sd-item.sel { background: #F0FAF0; }
+    .sd-item-icon { font-size: 16px; flex-shrink: 0; }
+    .sd-item-text { flex: 1; min-width: 0; }
+    .sd-item-main { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sd-item-sub  { font-size: 11px; color: #999; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sd-item-badge { font-size: 10px; background: #E2F5D6; color: #3A6B28; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; margin-left: 8px; }
+    .sd-section-label { padding: 8px 14px 4px; font-size: 10px; font-weight: 500; color: #BBB; text-transform: uppercase; letter-spacing: 0.5px; background: #FAFAFA; border-bottom: 1px solid #F5F5F5; }
+    .nav-search button {
+      background: #93CF79; color: #fff; border: none;
+      padding: 9px 16px; font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+    }
+
+    .nav-right { display: flex; gap: 12px; align-items: center; }
+    .nav-link  { font-size: 13px; color: #777; text-decoration: none; cursor: pointer; }
+    .nav-cta   {
+      background: #93CF79; color: #fff; border: none;
+      border-radius: 20px; padding: 7px 18px;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 24px; background: #fff;
+      border-bottom: 1px solid #EBEBEB;
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+
+    .filter-label { font-size: 12px; color: #999; white-space: nowrap; flex-shrink: 0; }
+
+    .filter-chip {
+      border-radius: 20px; padding: 5px 13px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: all 0.12s; border: 1.5px solid #E0E0E0;
+      background: #fff; color: #555;
+      white-space: nowrap; flex-shrink: 0;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .filter-chip:hover { border-color: #93CF79; color: #3A6B28; }
+    .filter-chip.active { background: #93CF79; color: #fff; border-color: #93CF79; }
+
+    .filter-divider { width: 1px; height: 20px; background: #E8E8E8; flex-shrink: 0; }
+
+    .filter-sort {
+      border: 1.5px solid #E0E0E0; border-radius: 8px;
+      padding: 5px 10px; font-size: 12px;
+      font-family: 'DM Sans', sans-serif; color: #555;
+      background: #fff; outline: none; cursor: pointer; flex-shrink: 0;
+    }
+
+
+
+    /* ── MAIN LAYOUT ── */
+    .main-layout { display: grid; grid-template-columns: 360px 1fr; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: #fff; border-right: 1px solid #EBEBEB;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 14px 18px 10px; border-bottom: 1px solid #F0F0F0;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    .sidebar-count { font-size: 13px; font-weight: 500; color: #222; }
+    .sidebar-count .count-num { font-family: 'Coiny', cursive; font-size: 20px; color: #93CF79; line-height: 1; }
+
+    .results-list { overflow-y: auto; flex: 1; }
+    .results-list::-webkit-scrollbar { width: 4px; }
+    .results-list::-webkit-scrollbar-thumb { background: #E0E0E0; border-radius: 2px; }
+
+    .result-card {
+      padding: 14px 18px; border-bottom: 1px solid #F5F5F5;
+      cursor: pointer; transition: background 0.1s;
+      display: flex; gap: 12px; align-items: flex-start;
+      border-left: 3px solid transparent;
+    }
+    .result-card:hover { background: #FAFAFA; }
+    .result-card.active { background: #F0FAF0; border-left-color: #93CF79; }
+
+    .result-thumb {
+      width: 56px; height: 56px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+    }
+    .result-body  { flex: 1; min-width: 0; }
+    .result-top   { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; gap: 8px; }
+    .result-name  { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-score { font-family: 'Coiny', cursive; font-size: 20px; color: #3A6B28; flex-shrink: 0; line-height: 1; }
+    .result-meta  { font-size: 11px; color: #999; margin-bottom: 7px; }
+    .result-tags  { display: flex; gap: 4px; flex-wrap: wrap; }
+    .result-tag   { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #F2F2F2; color: #666; border: 1px solid #EBEBEB; }
+    .result-tag.wifi { background: #E2F5D6; color: #3A6B28; border-color: #AAD990; }
+
+    .sidebar-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 48px 24px; text-align: center; flex: 1;
+    }
+    .state-icon  { font-size: 36px; margin-bottom: 12px; }
+    .state-title { font-family: 'Coiny', cursive; font-size: 22px; color: #555; margin-bottom: 6px; }
+    .state-sub   { font-size: 13px; color: #999; line-height: 1.6; }
+
+    /* ── MAP ── */
+    .map-container { position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    .map-overlay { position: absolute; top: 14px; right: 14px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+    .map-overlay-btn {
+      background: #fff; border: 1px solid #E0E0E0; border-radius: 10px;
+      padding: 8px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; color: #444;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.12s;
+    }
+    .map-overlay-btn:hover { border-color: #93CF79; color: #3A6B28; }
+
+    .map-pill {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #222; color: #fff; border-radius: 20px;
+      padding: 8px 20px; font-size: 13px; font-weight: 500;
+      z-index: 50; box-shadow: 0 2px 12px rgba(0,0,0,0.2); white-space: nowrap;
+    }
+
+    .leaflet-popup-content-wrapper { border-radius: 14px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; }
+    .leaflet-popup-content { margin: 14px 16px !important; }
+    .leaflet-popup-tip { background: #fff !important; }
+
+    .map-popup     { font-family: 'DM Sans', sans-serif; min-width: 200px; }
+    .map-popup-name  { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+    .map-popup-meta  { font-size: 11px; color: #999; margin-bottom: 8px; }
+    .map-popup-score { font-family: 'Coiny', cursive; font-size: 28px; color: #3A6B28; line-height: 1; margin-bottom: 4px; }
+    .map-popup-score-lbl { font-size: 10px; color: #999; margin-bottom: 8px; }
+    .map-popup-tags  { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+    .map-popup-tag   { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #E2F5D6; color: #3A6B28; border: 1px solid #AAD990; }
+    .map-popup-btn   { width: 100%; background: #93CF79; color: #fff; border: none; border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+    .map-popup-btn:hover { background: #7AB865; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="index.html"><span class="work">Work</span><span class="local">Local</span></a>
+    <div class="nav-search" style="position:relative;">
+      <input type="text"
+        id="search-input"
+        placeholder="Search city or spot name..."
+        autocomplete="off"
+        oninput="onSearchInput()"
+        onkeydown="onSearchKeydown(event)"/>
+      <button onclick="handleSearch()">Search</button>
+      <!-- Dropdown -->
+      <div id="search-dropdown"></div>
+    </div>
+    <div class="nav-right">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="worklocal_spot_detail.html">Add a spot</a>
+      <button class="nav-cta" onclick="WLAuth.showAuthModal()">Join for free</button>
+    </div>
+  </nav>
+
+  <div class="filter-bar">
+    <span class="filter-label">Type:</span>
+    <div class="filter-chip active" onclick="setTypeFilter(this,'all')">All spots</div>
+    <div class="filter-chip" onclick="setTypeFilter(this,'coffee')">☕ Coffee</div>
+    <div class="filter-chip" onclick="setTypeFilter(this,'brewery')">🍺 Brewery</div>
+    <div class="filter-chip" onclick="setTypeFilter(this,'cowork')">🏢 Co-working</div>
+    <div class="filter-chip" onclick="setTypeFilter(this,'other')">✨ Other</div>
+
+    <div class="filter-divider"></div>
+
+    <span class="filter-label">Filter:</span>
+    <div class="filter-chip" onclick="toggleFilter(this,'fast-wifi')">Fast wifi</div>
+    <div class="filter-chip" onclick="toggleFilter(this,'outlets')">Outlets</div>
+    <div class="filter-chip" onclick="toggleFilter(this,'quiet')">Quiet</div>
+    <div class="filter-chip" onclick="toggleFilter(this,'dog-friendly')">Dog friendly</div>
+
+    <div class="filter-divider"></div>
+
+    <span class="filter-label">Sort:</span>
+    <select class="filter-sort" onchange="handleSort(this.value)">
+      <option value="score">Best match</option>
+      <option value="wifi">Wifi speed</option>
+      <option value="distance">Distance</option>
+    </select>
+  </div>
+
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-count">
+          <span class="count-num" id="result-count">—</span>
+          <span id="location-label"> spots near Austin, TX</span>
+        </div>
+      </div>
+      <div class="results-list" id="results-list"></div>
+      <div class="sidebar-state" id="empty-state" style="display:none;">
+        <div class="state-icon">🗺</div>
+        <div class="state-title">No spots found</div>
+        <div class="state-sub">Try a wider radius or different filter.</div>
+      </div>
+      <div class="sidebar-state" id="loading-state">
+        <div class="state-icon">☕</div>
+        <div class="state-title">Finding spots...</div>
+        <div class="state-sub">Loading great places to work near you.</div>
+      </div>
+    </div>
+
+    <div class="map-container">
+      <div id="map"></div>
+      <div class="map-overlay">
+        <button class="map-overlay-btn" onclick="locateMe()">📍 My location</button>
+        <button class="map-overlay-btn" onclick="window.location.href='worklocal_spot_detail.html'">+ Add a spot</button>
+      </div>
+      <div class="map-pill" id="map-pill">Loading spots...</div>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       STATE
+    ============================================================ */
+    let allSpots     = [];
+    let visibleSpots = [];
+    let markerCluster = null;
+    let activeSpotId = null;
+    let activeType   = 'all';
+    let activeFilters = new Set();
+    let sortBy       = 'score';
+    let markers      = {};
+    let mapCenter    = { lat: 30.2672, lng: -97.7431, label: 'Austin, TX' };
+
+    /* ============================================================
+       MAP — Free OpenStreetMap tiles, no API key needed
+    ============================================================ */
+    const map = L.map('map', {
+      center: [mapCenter.lat, mapCenter.lng],
+      zoom: 11,
+      zoomControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Create marker cluster group
+    markerCluster = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      showCoverageOnHover: false,
+      zoomToBoundsOnClick: true,
+      spiderfyOnMaxZoom: true,
+      disableClusteringAtZoom: 15,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        const size  = count < 10 ? 34 : count < 50 ? 40 : 46;
+        return L.divIcon({
+          html: '<div style="' +
+            'width:' + size + 'px;height:' + size + 'px;' +
+            'background:#93CF79;' +
+            'border:2.5px solid #fff;' +
+            'border-radius:50%;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.2);' +
+            'display:flex;align-items:center;justify-content:center;' +
+            'font-family:Coiny,cursive;font-size:14px;color:#fff;">' +
+            count +
+            '</div>',
+          className: '',
+          iconSize: [size, size],
+          iconAnchor: [size/2, size/2],
+        });
+      }
+    });
+    markerCluster.addTo(map);
+
+    /* ============================================================
+       LOAD SPOTS FROM SUPABASE
+       Falls back to demo spots if Supabase not configured
+    ============================================================ */
+    async function loadSpots() {
+      try {
+        if (!window.WL?.supabaseUrl || window.WL.supabaseUrl === 'YOUR_PROJECT_URL') {
+          return DEMO_SPOTS;
+        }
+        const client = supabase.createClient(window.WL.supabaseUrl, window.WL.supabaseKey);
+        // Load all Texas spots once and cache — instant after first load
+        if (window._spotCache && window._spotCache.length > 0) {
+          return window._spotCache;
+        }
+
+        // Fetch in two batches to get past 1000 row limit
+        const [batch1, batch2] = await Promise.all([
+          client.from('spots').select('*').eq('status','live')
+            .order('name', { ascending: true }).range(0, 999),
+          client.from('spots').select('*').eq('status','live')
+            .order('name', { ascending: true }).range(1000, 1999),
+        ]);
+
+        const combined = [
+          ...(batch1.data || []),
+          ...(batch2.data || []),
+        ];
+
+        window._spotCache = combined.map(mapSpot);
+        return window._spotCache;
+      } catch (err) {
+        console.error('Supabase error, using demo spots:', err);
+        return DEMO_SPOTS;
+      }
+    }
+
+    function mapSpot(s) {
+      return {
+        id: s.id, name: s.name, type: s.type,
+        icon: typeIcon(s.type),
+        neighborhood: s.neighborhood || '',
+        city: s.city + (s.state ? ', ' + s.state : ''),
+        score: s.nomad_score || 0,
+        wifi_speed: s.wifi_avg_speed || 0,
+        tags: buildTags(s), tag_styles: ['wifi','',''],
+        filters: buildFilters(s),
+        lat: parseFloat(s.lat), lng: parseFloat(s.lng),
+        thumb_bg: typeThumbBg(s.type),
+        score_bg: typeScoreBg(s.type),
+        score_color: typeScoreColor(s.type),
+      };
+    }
+
+    function typeIcon(t)       { return {coffee:'☕',brewery:'🍺',winery:'🍷',cowork:'🏢',bakery:'🥐',other:'✨'}[t]||'📍'; }
+    function typeThumbBg(t)    { return {coffee:'#F5F9F2',brewery:'#F2F6FF',winery:'#FAF7FF',cowork:'#F2F6FF',bakery:'#FFFAF5',other:'#F5F5FF'}[t]||'#F7F7F5'; }
+    function typeScoreBg(t)    { return {coffee:'#E2F5D6',brewery:'#D8E8FF',winery:'#E8DAFF',cowork:'#D8E8FF',bakery:'#FAEEDA',other:'#E2F5D6'}[t]||'#E2F5D6'; }
+    function typeScoreColor(t) { return {coffee:'#3A6B28',brewery:'#2A4EA0',winery:'#5A30A0',cowork:'#2A4EA0',bakery:'#854F0B',other:'#3A6B28'}[t]||'#3A6B28'; }
+
+    function buildTags(s) {
+      const t = [];
+      if (s.wifi_avg_speed)          t.push(Math.round(s.wifi_avg_speed)+' Mbps');
+      if (s.outlets === 'plenty')    t.push('Lots of outlets');
+      if (s.noise_level === 'quiet') t.push('Quiet');
+      if (s.dog_friendly)            t.push('Dog friendly');
+      if (s.google_rating)           t.push('★ '+s.google_rating);
+      return t.slice(0,3);
+    }
+
+    function buildFilters(s) {
+      const f = [];
+      if ((s.wifi_avg_speed||0) > 50)                      f.push('fast-wifi');
+      if (s.outlets === 'plenty' || s.outlets === 'some')  f.push('outlets');
+      if (s.noise_level === 'quiet')                       f.push('quiet');
+      if (s.dog_friendly)                                  f.push('dog-friendly');
+      return f;
+    }
+
+    /* ============================================================
+       DISTANCE — miles between two lat/lng points
+    ============================================================ */
+    function distanceMiles(lat1, lng1, lat2, lng2) {
+      const R = 3958.8;
+      const dL = (lat2-lat1) * Math.PI/180;
+      const dG = (lng2-lng1) * Math.PI/180;
+      const a  = Math.sin(dL/2)*Math.sin(dL/2) +
+                 Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+                 Math.sin(dG/2)*Math.sin(dG/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    /* ============================================================
+       FILTERING — viewport based
+       Shows every spot visible in the current map bounds
+       As you zoom out more spots appear automatically
+    ============================================================ */
+    function applyFilters() {
+      let results = [...allSpots];
+
+      // Get current map bounds
+      const bounds = map.getBounds();
+
+      // Filter to spots visible in current map viewport
+      results = results.filter(s => {
+        if (!s.lat || !s.lng || isNaN(s.lat) || isNaN(s.lng)) return false;
+        return bounds.contains([s.lat, s.lng]);
+      });
+
+      // Calculate distance from map center for display + sorting
+      const center = map.getCenter();
+      results.forEach(s => {
+        s._distance = distanceMiles(center.lat, center.lng, s.lat, s.lng);
+        s._distLabel = s._distance < 0.1 ? 'Here'
+          : s._distance < 10 ? s._distance.toFixed(1)+' mi'
+          : Math.round(s._distance)+' mi';
+      });
+
+      // Type filter
+      if (activeType !== 'all') {
+        results = results.filter(s => s.type === activeType);
+      }
+
+      // Attribute filters
+      if (activeFilters.size > 0) {
+        results = results.filter(s =>
+          [...activeFilters].every(f => (s.filters||[]).includes(f))
+        );
+      }
+
+      // Sort
+      results.sort((a,b) => {
+        if (sortBy === 'wifi')     return (b.wifi_speed||0)-(a.wifi_speed||0);
+        if (sortBy === 'distance') return (a._distance||0)-(b._distance||0);
+        return (b.score||0)-(a.score||0);
+      });
+
+      visibleSpots = results;
+      renderCards(results);
+      renderMarkers(results);
+    }
+
+    function setTypeFilter(el, type) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      activeType = type;
+      applyFilters();
+    }
+
+    function toggleFilter(el, filter) {
+      el.classList.toggle('active');
+      activeFilters.has(filter) ? activeFilters.delete(filter) : activeFilters.add(filter);
+      applyFilters();
+    }
+
+    function handleSort(val) { sortBy = val; applyFilters(); }
+
+    /* ============================================================
+       RENDER SIDEBAR
+    ============================================================ */
+    function renderCards(spots) {
+      const list    = document.getElementById('results-list');
+      const empty   = document.getElementById('empty-state');
+      const loading = document.getElementById('loading-state');
+      const countEl = document.getElementById('result-count');
+      const pillEl  = document.getElementById('map-pill');
+      const lblEl   = document.getElementById('location-label');
+
+      loading.style.display = 'none';
+      countEl.textContent = spots.length;
+      pillEl.textContent  = spots.length + ' spots in this area';
+      lblEl.textContent   = ' spots near ' + mapCenter.label;
+
+      if (spots.length === 0) {
+        list.style.display = 'none'; empty.style.display = 'flex'; return;
+      }
+      list.style.display = 'block'; empty.style.display = 'none';
+
+      list.innerHTML = spots.map(s => `
+        <div class="result-card ${s.id === activeSpotId ? 'active' : ''}"
+             id="card-${s.id}" onclick="handleCardClick(${s.id})">
+          <div class="result-thumb" style="background:${s.thumb_bg};">${s.icon}</div>
+          <div class="result-body">
+            <div class="result-top">
+              <div class="result-name">${s.name}</div>
+              <div class="result-score" style="${!s.score ? 'color:#BBB;' : ''}">${s.score||'?'}</div>
+            </div>
+            <div class="result-meta">
+              ${s.neighborhood ? s.neighborhood+' · ' : ''}${s.city}
+              ${s._distLabel ? ' · '+s._distLabel : ''}
+            </div>
+            <div class="result-tags">
+              ${s.tags.map((t,i)=>`<span class="result-tag ${s.tag_styles[i]||''}">${t}</span>`).join('')}
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    /* ============================================================
+       RENDER MARKERS
+    ============================================================ */
+    function renderMarkers(spots) {
+      // Clear existing markers from cluster group
+      markerCluster.clearLayers();
+      markers = {};
+
+      const newMarkers = [];
+
+      spots.forEach(s => {
+        if (!s.lat || !s.lng || isNaN(s.lat) || isNaN(s.lng)) return;
+        const isActive = s.id === activeSpotId;
+
+        // Scored = green, unscored = grey
+        const hasScore = s.score && s.score > 0;
+        const markerBg  = isActive ? '#3A6B28' : (hasScore ? '#93CF79' : '#BBBBBB');
+        const markerTxt = hasScore ? s.score : '?';
+        const markerHtml = [
+          '<div style="width:32px;height:32px;',
+          'background:' + markerBg + ';',
+          'border:2.5px solid #fff;',
+          'border-radius:50% 50% 50% 0;',
+          'transform:rotate(-45deg);',
+          'box-shadow:0 2px 8px rgba(0,0,0,0.2);',
+          'display:flex;align-items:center;justify-content:center;">',
+          '<span style="transform:rotate(45deg);',
+          'font-family:Coiny,cursive;',
+          'font-size:11px;color:#fff;line-height:1;">',
+          markerTxt,
+          '</span></div>'
+        ].join('');
+
+        const icon = L.divIcon({
+          className: '',
+          html: markerHtml,
+          iconSize: [32,32], iconAnchor: [16,32], popupAnchor: [0,-36],
+        });
+
+        // Build popup HTML safely
+        const safeName = (s.name||'').replace(/'/g, '&#39;').replace(/`/g, '&#96;');
+        const safeTags = (s.tags||[]).slice(0,3).map(function(t) {
+          return '<span class="map-popup-tag">' + t + '</span>';
+        }).join('');
+        const detailUrl = 'worklocal_spot_detail.html?id=' + s.id;
+        const popupHtml = [
+          '<div class="map-popup">',
+          '<div class="map-popup-name">' + safeName + '</div>',
+          '<div class="map-popup-meta">' + (s.city||'') + (s._distLabel ? ' &middot; ' + s._distLabel : '') + '</div>',
+          '<div class="map-popup-score">' + (s.score||'?') + '</div>',
+          '<div class="map-popup-score-lbl">nomad score</div>',
+          '<div class="map-popup-tags">' + safeTags + '</div>',
+          '<button class="map-popup-btn" onclick="location.href=' + "'" + detailUrl + "'" + '">View details &rarr;</button>',
+          '</div>'
+        ].join('');
+
+        const marker = L.marker([s.lat, s.lng], { icon })
+          .bindPopup(popupHtml, { maxWidth: 240 });
+
+        marker.on('click', function() { selectSpot(s.id); });
+        markers[s.id] = marker;
+        newMarkers.push(marker);
+      });
+
+      // Add all markers to cluster group at once — much faster than one by one
+      markerCluster.addLayers(newMarkers);
+    }
+
+    /* ============================================================
+       SELECT SPOT
+    ============================================================ */
+    function selectSpot(id) {
+      activeSpotId = id;
+      document.querySelectorAll('.result-card').forEach(c => c.classList.remove('active'));
+      const card = document.getElementById('card-'+id);
+      if (card) { card.classList.add('active'); card.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+      renderMarkers(visibleSpots);
+      if (markers[id]) markers[id].openPopup();
+    }
+
+    function handleCardClick(id) {
+      if (activeSpotId === id) window.location.href = 'worklocal_spot_detail.html?id=' + id;
+      else selectSpot(id);
+    }
+
+    /* ============================================================
+       SEARCH — simple geocoding using Nominatim (free, no key needed)
+    ============================================================ */
+    async function handleSearch() {
+      const val = document.getElementById('search-input').value.trim();
+      if (!val) return;
+
+      try {
+        const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&countrycodes=us&format=json&limit=1`);
+        const data = await res.json();
+        if (data && data[0]) {
+          const lat   = parseFloat(data[0].lat);
+          const lng   = parseFloat(data[0].lon);
+          const label = data[0].display_name.split(',').slice(0,2).join(',').trim();
+          flyToLocation(lat, lng, label);
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+      }
+    }
+
+    function flyToLocation(lat, lng, label) {
+      mapCenter = { lat, lng, label };
+      // Fly to city at zoom 12 — user can zoom out to see full metro
+      map.flyTo([lat, lng], 12, { duration: 1.2 });
+      // applyFilters fires automatically via moveend listener
+      document.getElementById('search-input').value = label;
+    }
+
+    function locateMe() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(pos => {
+        flyToLocation(pos.coords.latitude, pos.coords.longitude, 'Your location');
+      });
+    }
+
+    // Enter key search
+    document.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSearch();
+    });
+
+    /* ============================================================
+       DEMO SPOTS
+    ============================================================ */
+    const DEMO_SPOTS = [
+      { id:1, name:'Epoch Coffee',      type:'coffee',  icon:'☕', neighborhood:'North Loop', city:'Austin, TX', score:94, wifi_speed:87,  tags:['87 Mbps','Lots of outlets','Nomad friendly'], tag_styles:['wifi','',''], filters:['fast-wifi','outlets'],      lat:30.3230, lng:-97.7340, thumb_bg:'#F5F9F2', score_bg:'#E2F5D6', score_color:'#3A6B28' },
+      { id:2, name:'Lazarus Brewing',   type:'brewery', icon:'🍺', neighborhood:'East 6th',   city:'Austin, TX', score:91, wifi_speed:72,  tags:['72 Mbps','Open late','Dog friendly'],          tag_styles:['wifi','',''], filters:['fast-wifi','dog-friendly'],  lat:30.2580, lng:-97.7220, thumb_bg:'#F2F6FF', score_bg:'#D8E8FF', score_color:'#2A4EA0' },
+      { id:3, name:'Radio Coffee',      type:'coffee',  icon:'☕', neighborhood:'S. Lamar',   city:'Austin, TX', score:89, wifi_speed:95,  tags:['95 Mbps','Outlets','Outdoor seating'],         tag_styles:['wifi','',''], filters:['fast-wifi','outlets'],      lat:30.2490, lng:-97.7700, thumb_bg:'#F5F9F2', score_bg:'#E2F5D6', score_color:'#3A6B28' },
+      { id:4, name:'Capital Factory',   type:'cowork',  icon:'🏢', neighborhood:'Downtown',   city:'Austin, TX', score:97, wifi_speed:320, tags:['320 Mbps','Day pass','Standing desks'],        tag_styles:['wifi','',''], filters:['fast-wifi','outlets'],      lat:30.2685, lng:-97.7404, thumb_bg:'#F2F6FF', score_bg:'#D8E8FF', score_color:'#2A4EA0' },
+      { id:5, name:'Cherrywood Coffee', type:'coffee',  icon:'☕', neighborhood:'Cherrywood', city:'Austin, TX', score:86, wifi_speed:58,  tags:['58 Mbps','Quiet','Great coffee'],              tag_styles:['wifi','',''], filters:['quiet'],                    lat:30.2660, lng:-97.7180, thumb_bg:'#F5F9F2', score_bg:'#E2F5D6', score_color:'#3A6B28' },
+      { id:6, name:'Cuvée Coffee',      type:'coffee',  icon:'☕', neighborhood:'N. Burnet',  city:'Austin, TX', score:83, wifi_speed:110, tags:['110 Mbps','Quiet','Minimalist'],               tag_styles:['wifi','',''], filters:['fast-wifi','quiet'],        lat:30.3380, lng:-97.7300, thumb_bg:'#F5F9F2', score_bg:'#E2F5D6', score_color:'#3A6B28' },
+    ];
+
+    /* ============================================================
+       SEARCH — spots + cities from database only
+    ============================================================ */
+    let _searchTimer = null;
+    let _suggestions = [];
+    let _selIdx      = -1;
+
+    const TYPE_ICON_SEARCH = {coffee:'☕',brewery:'🍺',winery:'🍷',cowork:'🏢',bakery:'🥐',other:'✨'};
+
+    function onSearchInput() {
+      const val = document.getElementById('search-input').value.trim();
+      if (val.length < 2) { closeDropdown(); return; }
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(function() { fetchSuggestions(val); }, 200);
+    }
+
+
+    function fetchSuggestions(query) {
+      const q = query.toLowerCase();
+      _suggestions = [];
+
+      // Search spots by name from loaded allSpots
+      const spotMatches = allSpots
+        .filter(function(s) { return s.name.toLowerCase().includes(q); })
+        .slice(0, 6);
+      spotMatches.forEach(function(s) {
+        _suggestions.push({ type: 'spot', spot: s });
+      });
+
+      // Search cities from database
+      const seenCities = new Set();
+      allSpots.forEach(function(s) {
+        if (!s.city) return;
+        const cityLabel = s.city + (s.state ? ', ' + s.state : '');
+        if (cityLabel.toLowerCase().includes(q) && !seenCities.has(cityLabel)) {
+          seenCities.add(cityLabel);
+          _suggestions.push({ type: 'city', label: cityLabel, city: s.city, state: s.state });
+        }
+      });
+
+      // Calculate city center from spots
+      _suggestions.forEach(function(sg) {
+        if (sg.type !== 'city') return;
+        const pts = allSpots.filter(function(s) { return s.city === sg.city && s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng); });
+        if (pts.length > 0) {
+          sg.lat = pts.reduce(function(sum,s){ return sum+s.lat; }, 0) / pts.length;
+          sg.lng = pts.reduce(function(sum,s){ return sum+s.lng; }, 0) / pts.length;
+        }
+      });
+
+      // Dedupe cities
+      const seen = new Set();
+      _suggestions = _suggestions.filter(function(sg) {
+        if (sg.type === 'city') {
+          if (seen.has(sg.label)) return false;
+          seen.add(sg.label);
+        }
+        return true;
+      });
+
+      renderDropdown(_suggestions);
+    }
+
+    function renderDropdown(suggestions) {
+      const d = document.getElementById('search-dropdown');
+      if (!suggestions.length) { closeDropdown(); return; }
+
+      const spots  = suggestions.filter(function(s) { return s.type === 'spot'; });
+      const cities = suggestions.filter(function(s) { return s.type === 'city'; });
+      let html = '';
+
+      if (spots.length) {
+        html += '<div class="sd-section-label">Spots</div>';
+        spots.forEach(function(s, i) {
+          html += '<div class="sd-item" id="sd-' + i + '" onclick="selectSuggestion(' + i + ')" onmouseover="_selIdx=' + i + ';highlightDropdown()">' +
+            '<span class="sd-item-icon">' + (TYPE_ICON_SEARCH[s.spot.type]||'📍') + '</span>' +
+            '<div class="sd-item-text"><div class="sd-item-main">' + s.spot.name + '</div>' +
+            '<div class="sd-item-sub">' + (s.spot.city||'') + (s.spot.state ? ', '+s.spot.state : '') + '</div></div>' +
+            '<span class="sd-item-badge">' + (s.spot.score||'—') + '</span>' +
+            '</div>';
+        });
+      }
+
+      if (cities.length) {
+        html += '<div class="sd-section-label">Cities</div>';
+        cities.forEach(function(s, i) {
+          const idx = spots.length + i;
+          html += '<div class="sd-item" id="sd-' + idx + '" onclick="selectSuggestion(' + idx + ')" onmouseover="_selIdx=' + idx + ';highlightDropdown()">' +
+            '<span class="sd-item-icon">📍</span>' +
+            '<div class="sd-item-text"><div class="sd-item-main">' + s.label + '</div>' +
+            '<div class="sd-item-sub">Fly to city</div></div>' +
+            '</div>';
+        });
+      }
+
+      if (!html) { closeDropdown(); return; }
+      d.innerHTML = html;
+
+      // Move to body so NO parent can clip it
+      if (d.parentNode !== document.body) {
+        document.body.appendChild(d);
+      }
+      // Position using viewport coords
+      const input = document.getElementById('search-input');
+      const rect  = input.getBoundingClientRect();
+      d.style.top   = (rect.bottom + 4) + 'px';
+      d.style.left  = rect.left + 'px';
+      d.style.width = (rect.right - rect.left) + 'px';
+      d.style.display = 'block';
+      _selIdx = -1;
+    }
+
+    function highlightDropdown() {
+      document.querySelectorAll('.sd-item').forEach(function(el, i) {
+        el.classList.toggle('sel', i === _selIdx);
+      });
+    }
+
+    function closeDropdown() {
+      const d = document.getElementById('search-dropdown');
+      if (d) d.style.display = 'none';
+      _suggestions = []; _selIdx = -1;
+    }
+
+    function onSearchKeydown(e) {
+      const items = document.querySelectorAll('.sd-item');
+      if (!items.length) { if (e.key === 'Enter') handleSearch(); return; }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        _selIdx = Math.min(_selIdx + 1, items.length - 1);
+        highlightDropdown();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        _selIdx = Math.max(_selIdx - 1, 0);
+        highlightDropdown();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (_selIdx >= 0) selectSuggestion(_selIdx);
+        else handleSearch();
+      } else if (e.key === 'Escape') {
+        closeDropdown();
+      }
+    }
+
+    function selectSuggestion(idx) {
+      const s = _suggestions[idx];
+      if (!s) return;
+      closeDropdown();
+      if (s.type === 'spot') {
+        window.location.href = 'worklocal_spot_detail.html?id=' + s.spot.id;
+      } else if (s.lat && s.lng) {
+        document.getElementById('search-input').value = s.label;
+        flyToLocation(s.lat, s.lng, s.label);
+      }
+    }
+
+    function handleSearch() {
+      const val = document.getElementById('search-input').value.trim();
+      if (!val) return;
+      closeDropdown();
+      const q = val.toLowerCase();
+
+      // Exact spot name
+      const exact = allSpots.find(function(s) { return s.name.toLowerCase() === q; });
+      if (exact) { window.location.href = 'worklocal_spot_detail.html?id=' + exact.id; return; }
+
+      // Partial spot name
+      const partial = allSpots.find(function(s) { return s.name.toLowerCase().includes(q); });
+      if (partial) { window.location.href = 'worklocal_spot_detail.html?id=' + partial.id; return; }
+
+      // City match
+      const citySpots = allSpots.filter(function(s) { return s.city && s.city.toLowerCase().includes(q) && s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng); });
+      if (citySpots.length > 0) {
+        const avgLat = citySpots.reduce(function(sum,s){ return sum+s.lat; }, 0) / citySpots.length;
+        const avgLng = citySpots.reduce(function(sum,s){ return sum+s.lng; }, 0) / citySpots.length;
+        const label  = citySpots[0].city + (citySpots[0].state ? ', ' + citySpots[0].state : '');
+        document.getElementById('search-input').value = label;
+        flyToLocation(avgLat, avgLng, label);
+        return;
+      }
+
+      // Nothing found
+      const d = document.getElementById('search-dropdown');
+      d.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#BBB;">No spots or cities found for "' + val + '"</div>';
+      d.style.display = 'block';
+      setTimeout(closeDropdown, 2000);
+    }
+
+    function flyToLocation(lat, lng, label) {
+      mapCenter = { lat, lng, label };
+      map.flyTo([lat, lng], 12, { duration: 1.2 });
+      // No reload needed — all spots already cached
+      setTimeout(applyFilters, 1500);
+    }
+
+    function locateMe() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        flyToLocation(pos.coords.latitude, pos.coords.longitude, 'Your location');
+      });
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.nav-search')) closeDropdown();
+    });
+
+        /* ============================================================
+       INIT
+    ============================================================ */
+    async function init() {
+      allSpots = await loadSpots();
+
+      // Read URL params from homepage search
+      const params = new URLSearchParams(window.location.search);
+      const search = params.get('search');
+      const lat    = parseFloat(params.get('lat'));
+      const lng    = parseFloat(params.get('lng'));
+      const type   = params.get('type');
+
+      // If type param set — activate that filter chip
+      if (type) {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        const chipMap = { coffee:'☕ Coffee', brewery:'🍺 Brewery', winery:'🍷 Winery', cowork:'🏢 Co-working', bakery:'🥐 Bakery', other:'✨ Other' };
+        document.querySelectorAll('.filter-chip').forEach(c => {
+          if (c.textContent.trim().includes(chipMap[type]?.split(' ')[1]||'')) c.classList.add('active');
+        });
+        activeType = type;
+      }
+
+      // If lat/lng passed — fly there immediately
+      if (!isNaN(lat) && !isNaN(lng) && search) {
+        mapCenter = { lat, lng, label: search };
+        map.setView([lat, lng], 12);
+        document.getElementById('search-input').value = search;
+        applyFilters();
+      } else if (search) {
+        // No coords — geocode the search term
+        document.getElementById('search-input').value = search;
+        try {
+          const res  = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(search)}&countrycodes=us&format=json&limit=1`);
+          const data = await res.json();
+          if (data && data[0]) {
+            const slat = parseFloat(data[0].lat);
+            const slng = parseFloat(data[0].lon);
+            mapCenter = { lat:slat, lng:slng, label:search };
+            map.setView([slat, slng], 12);
+          }
+        } catch (e) { console.error('Geocode error:', e); }
+        applyFilters();
+      } else {
+        applyFilters();
+      }
+    }
+
+    init();
+
+    // Reapply filters whenever the map moves or zooms
+    // This makes spots update automatically as you pan/zoom
+    // Just refilter visible spots on pan/zoom — no Supabase calls needed
+    map.on('moveend', applyFilters);
+    map.on('zoomend', applyFilters);
+  </script>
+</body>
+</html>
