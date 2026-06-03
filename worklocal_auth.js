@@ -5,7 +5,7 @@
 
 // ── Admin emails ──
 const ADMIN_EMAILS = [
-  'alalston9814@gmail.com',
+  'alalston9814@gmail.com', 'jennahetsko1@gmail.com'
 ];
 
 // ── Single shared client instance ──
