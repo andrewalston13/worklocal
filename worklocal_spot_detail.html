@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spot Detail — WorkLocal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Chicle&family=Coiny&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="worklocal_config.js"></script>
+  <script src="worklocal_auth.js"></script>
+
+  <style>
+    /* ============================================================
+       WORKLOCAL — SPOT DETAIL PAGE
+       Dynamically loads any spot by ?id= URL parameter
+    ============================================================ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body { font-family: 'DM Sans', sans-serif; color: #222; background: #F7F7F5; }
+
+    @keyframes fadeInUp {
+      from { opacity:0; transform:translateX(-50%) translateY(10px); }
+      to   { opacity:1; transform:translateX(-50%) translateY(0); }
+    }
+
+    /* NAV */
+    nav { display:flex; align-items:center; justify-content:space-between; padding:13px 32px; background:#fff; border-bottom:1px solid #E8E8E8; position:sticky; top:0; z-index:100; }
+    .nav-logo { font-family:'Chicle',cursive; font-size:24px; letter-spacing:1px; text-decoration:none; }
+    .nav-logo .work { color:#3A6B28; } .nav-logo .local { color:#93CF79; }
+    .nav-right { display:flex; gap:14px; align-items:center; }
+    .nav-link  { font-size:13px; color:#777; text-decoration:none; cursor:pointer; }
+    .nav-cta   { background:#93CF79; color:#fff; border:none; border-radius:20px; padding:7px 18px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; }
+
+    /* BREADCRUMB */
+    .breadcrumb { padding:12px 32px; font-size:12px; color:#999; background:#fff; border-bottom:1px solid #F0F0F0; display:flex; align-items:center; gap:6px; }
+    .breadcrumb a { color:#3A6B28; text-decoration:none; cursor:pointer; }
+    .breadcrumb a:hover { text-decoration:underline; }
+    .breadcrumb-sep { color:#DDD; }
+
+    /* LOADING / ERROR */
+    .page-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:400px; text-align:center; color:#999; }
+    .page-loading-icon { font-size:48px; margin-bottom:16px; }
+    .page-loading-title { font-family:'Coiny',cursive; font-size:28px; color:#555; margin-bottom:8px; }
+    .page-loading-sub { font-size:14px; line-height:1.6; }
+    .back-btn { display:inline-block; margin-top:20px; background:#93CF79; color:#fff; border:none; border-radius:20px; padding:8px 20px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; text-decoration:none; }
+
+    /* PHOTO HERO */
+    .photo-hero { display:grid; grid-template-columns:2fr 1fr 1fr; grid-template-rows:220px; gap:3px; background:#E8E8E8; }
+    .photo-main { display:flex; align-items:center; justify-content:center; font-size:72px; position:relative; }
+    .photo-secondary { display:flex; align-items:center; justify-content:center; font-size:48px; }
+    .photo-tertiary { display:flex; align-items:center; justify-content:center; font-size:48px; position:relative; }
+    .photo-count-overlay { position:absolute; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:500; cursor:pointer; }
+
+    /* PAGE LAYOUT */
+    .page-body { max-width:1100px; margin:0 auto; padding:28px 32px 60px; display:grid; grid-template-columns:1fr 340px; gap:28px; align-items:start; }
+    .left-col  { display:flex; flex-direction:column; gap:20px; }
+    .right-col { display:flex; flex-direction:column; gap:16px; }
+
+    /* CARDS */
+    .section-card { background:#fff; border:1px solid #EBEBEB; border-radius:18px; padding:20px 24px; }
+    .section-title { font-family:'Coiny',cursive; font-size:22px; color:#222; margin-bottom:14px; }
+
+    /* HEADER */
+    .spot-type-pill { font-size:11px; font-weight:500; padding:3px 10px; border-radius:10px; background:#E2F5D6; color:#3A6B28; border:1px solid #AAD990; margin-bottom:6px; display:inline-block; }
+    .spot-name    { font-family:'Coiny',cursive; font-size:38px; color:#222; line-height:1.05; margin-bottom:4px; }
+    .spot-address { font-size:13px; color:#999; margin-bottom:14px; }
+    .spot-meta-row { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:16px; }
+    .spot-meta-item { font-size:13px; color:#555; display:flex; align-items:center; gap:5px; }
+    .spot-meta-item .dot { width:6px; height:6px; border-radius:50%; background:#93CF79; }
+    .open-now { color:#3A6B28; font-weight:500; }
+
+    .action-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .action-btn { padding:9px 18px; border-radius:10px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; border:1.5px solid #E0E0E0; background:#fff; color:#444; transition:all 0.12s; }
+    .action-btn:hover { border-color:#93CF79; color:#3A6B28; }
+    .action-btn.primary { background:#93CF79; color:#fff; border-color:#93CF79; }
+    .action-btn.primary:hover { background:#7AB865; }
+
+    /* SCORE BREAKDOWN */
+    .score-breakdown { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .score-item-top  { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .score-item-label { font-size:12px; color:#666; }
+    .score-item-val   { font-family:'Coiny',cursive; font-size:18px; color:#3A6B28; }
+    .score-bar-track  { height:5px; background:#F0F0F0; border-radius:3px; overflow:hidden; }
+    .score-bar-fill   { height:100%; border-radius:3px; background:#93CF79; }
+    .score-bar-fill.mid { background:#EF9F27; }
+    .score-footnote   { font-size:11px; color:#BBB; margin-top:14px; padding-top:12px; border-top:1px solid #F5F5F5; }
+
+    /* WIFI STATS */
+    .wifi-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; }
+    .wifi-stat  { background:#F7F7F5; border-radius:12px; padding:12px 14px; text-align:center; }
+    .wifi-stat-val  { font-family:'Coiny',cursive; font-size:26px; color:#222; line-height:1; }
+    .wifi-stat-unit { font-size:11px; color:#999; margin-top:2px; }
+    .wifi-note { font-size:11px; color:#BBB; }
+
+    /* AMENITIES */
+    .amenity-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .amenity-row  { display:flex; align-items:center; gap:8px; font-size:13px; color:#444; }
+    .amenity-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .amenity-dot.yes     { background:#93CF79; }
+    .amenity-dot.no      { background:#E8E8E8; }
+    .amenity-dot.partial { background:#EF9F27; }
+    .amenity-dot.unknown { background:#DDD; }
+    .amenity-note { font-size:11px; color:#999; margin-left:auto; }
+
+    /* EXTERNAL REVIEWS */
+    .ext-reviews { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+    .ext-card    { border:1px solid #EBEBEB; border-radius:14px; padding:14px 16px; }
+    .ext-header  { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .ext-logo    { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .ext-name    { font-size:13px; font-weight:500; }
+    .ext-rating  { font-size:12px; color:#999; }
+    .ext-stars   { font-size:14px; color:#EF9F27; margin-bottom:8px; }
+    .ext-link-btn { width:100%; display:flex; justify-content:space-between; align-items:center; background:#F7F7F5; border:none; border-radius:8px; padding:7px 10px; font-size:12px; color:#666; cursor:pointer; font-family:'DM Sans',sans-serif; }
+    .ext-link-btn:hover { background:#EFEFEF; }
+
+    /* WORKLOCAL REVIEWS */
+    .review-list { display:flex; flex-direction:column; }
+    .review-item { padding:16px 0; border-bottom:1px solid #F5F5F5; }
+    .review-item:last-child { border-bottom:none; padding-bottom:0; }
+    .review-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+    .review-author-row { display:flex; align-items:center; gap:8px; }
+    .review-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:500; flex-shrink:0; }
+    .review-author { font-size:13px; font-weight:500; }
+    .review-date   { font-size:11px; color:#BBB; }
+    .verified-badge { display:flex; align-items:center; gap:4px; background:#E2F5D6; border-radius:10px; padding:2px 8px; font-size:10px; font-weight:500; color:#3A6B28; }
+    .verified-dot { width:5px; height:5px; border-radius:50%; background:#93CF79; }
+    .review-stars { font-size:12px; color:#EF9F27; margin-bottom:6px; }
+    .review-text  { font-size:13px; color:#555; line-height:1.65; margin-bottom:8px; }
+    .review-tags  { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; }
+    .review-tag   { font-size:10px; padding:2px 8px; border-radius:10px; background:#F2F2F2; color:#666; border:1px solid #EBEBEB; }
+    .review-tag.wifi { background:#E2F5D6; color:#3A6B28; border-color:#AAD990; }
+    .helpful-btn  { font-size:11px; color:#AAA; background:none; border:1px solid #EBEBEB; border-radius:10px; padding:3px 10px; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.12s; }
+    .helpful-btn:hover { border-color:#93CF79; color:#3A6B28; }
+    .flag-btn { font-size:11px; color:#DDD; background:none; border:1px solid #F0F0F0; border-radius:10px; padding:3px 10px; cursor:pointer; font-family:'DM Sans',sans-serif; margin-left:6px; transition:all 0.12s; }
+    .flag-btn:hover { border-color:#F7C1C1; color:#E24B4A; }
+    .flag-btn.flagged { color:#E24B4A; border-color:#F7C1C1; background:#FCEBEB; cursor:default; }
+    .review-actions { display:flex; align-items:center; gap:0; }
+    .write-review-cta { background:#EDF7E5; border:1.5px solid #AAD990; border-radius:14px; padding:16px 18px; display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:14px; }
+    .write-review-text { font-size:13px; font-weight:500; color:#3A6B28; margin-bottom:2px; }
+    .write-review-sub  { font-size:11px; color:#5A7A4A; }
+    .empty-reviews { text-align:center; padding:24px; color:#BBB; font-size:13px; }
+
+    /* HOURS */
+    .hours-grid { display:grid; grid-template-columns:120px 1fr auto; gap:6px 16px; font-size:13px; }
+    .hours-day   { color:#888; }
+    .hours-time  { color:#333; }
+    .hours-open  { font-size:11px; font-weight:500; color:#3A6B28; }
+
+    /* RIGHT COLUMN */
+    .score-hero { background:#EDF7E5; border:1.5px solid #AAD990; border-radius:18px; padding:22px 24px; text-align:center; }
+    .score-hero-num   { font-family:'Coiny',cursive; font-size:72px; color:#3A6B28; line-height:1; margin-bottom:2px; }
+    .score-hero-label { font-size:13px; color:#5A7A4A; margin-bottom:12px; }
+    .score-grade { display:inline-block; background:#93CF79; color:#fff; font-size:12px; font-weight:500; padding:4px 14px; border-radius:20px; margin-bottom:14px; }
+    .score-hero-divider { height:1px; background:#C8E8A8; margin:14px 0; }
+    .score-hero-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:center; }
+    .score-hero-stat-val { font-family:'Coiny',cursive; font-size:22px; color:#3A6B28; line-height:1; }
+    .score-hero-stat-lbl { font-size:11px; color:#7A9A6A; margin-top:2px; }
+
+    .checkin-card  { background:#fff; border:1px solid #EBEBEB; border-radius:18px; padding:18px 20px; }
+    .checkin-title { font-size:14px; font-weight:500; margin-bottom:4px; }
+    .checkin-sub   { font-size:12px; color:#999; margin-bottom:14px; line-height:1.5; }
+    .checkin-btn   { width:100%; background:#93CF79; color:#fff; border:none; border-radius:10px; padding:11px; font-size:14px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; margin-bottom:8px; }
+    .checkin-btn:hover { background:#7AB865; }
+    .checkin-btn-ghost { width:100%; background:transparent; color:#666; border:1.5px solid #E8E8E8; border-radius:10px; padding:10px; font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+
+    .tip-card  { background:#FDFAED; border:1px solid #EDE5AA; border-radius:18px; padding:16px 18px; }
+    .tip-label { font-size:10px; font-weight:500; color:#7A6A00; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:6px; }
+    .tip-text  { font-size:13px; color:#555; line-height:1.65; }
+
+    .map-card      { background:#fff; border:1px solid #EBEBEB; border-radius:18px; overflow:hidden; }
+    .map-card-img  { height:120px; background:#D5EFCA; display:flex; align-items:center; justify-content:center; font-size:13px; color:#5A7A4A; cursor:pointer; }
+    .map-card-body { padding:12px 16px; }
+    .map-card-address { font-size:13px; color:#333; margin-bottom:8px; }
+    .map-card-links { display:flex; gap:8px; }
+    .map-card-link { flex:1; text-align:center; padding:7px; border-radius:8px; font-size:12px; cursor:pointer; border:1px solid #E8E8E8; color:#555; text-decoration:none; transition:all 0.12s; }
+    .map-card-link:hover { border-color:#93CF79; color:#3A6B28; }
+
+    .partner-card  { background:#F2EDFF; border:1px solid #DDD5FF; border-radius:14px; padding:14px 16px; display:flex; align-items:center; gap:12px; }
+    .partner-icon  { font-size:28px; flex-shrink:0; }
+    .partner-title { font-size:13px; font-weight:500; color:#2E1A60; margin-bottom:2px; }
+    .partner-sub   { font-size:11px; color:#9A88BB; }
+    .partner-btn   { background:#7050C0; color:#fff; border:none; border-radius:8px; padding:7px 14px; font-size:12px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; white-space:nowrap; flex-shrink:0; }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a class="nav-logo" href="index.html"><span class="work">Work</span><span class="local">Local</span></a>
+    <div class="nav-right">
+      <a class="nav-link" href="worklocal_map.html">← Back to map</a>
+      <button class="nav-cta" onclick="WLAuth.showAuthModal()">Join for free</button>
+    </div>
+  </nav>
+
+  <!-- BREADCRUMB -->
+  <div class="breadcrumb" id="breadcrumb">
+    <a href="worklocal_map.html">Map</a>
+    <span class="breadcrumb-sep">/</span>
+    <span id="bc-city">Loading...</span>
+    <span class="breadcrumb-sep">/</span>
+    <span id="bc-name">Loading...</span>
+  </div>
+
+  <!-- LOADING STATE -->
+  <div class="page-loading" id="page-loading">
+    <div class="page-loading-icon">☕</div>
+    <div class="page-loading-title">Finding this spot...</div>
+    <div class="page-loading-sub">Loading details from WorkLocal</div>
+  </div>
+
+  <!-- ERROR STATE -->
+  <div class="page-loading" id="page-error" style="display:none;">
+    <div class="page-loading-icon">🗺</div>
+    <div class="page-loading-title">Spot not found</div>
+    <div class="page-loading-sub">This spot may have been removed or the link is incorrect.</div>
+    <a class="back-btn" href="worklocal_map.html">Back to map</a>
+  </div>
+
+  <!-- SPOT CONTENT — hidden until loaded -->
+  <div id="spot-content" style="display:none;">
+
+    <!-- PHOTO HERO -->
+    <div class="photo-hero" id="photo-hero">
+      <div class="photo-main" id="photo-main" style="background:#D5EFCA;">
+        <span id="spot-icon">☕</span>
+      </div>
+      <div class="photo-secondary" style="background:#EAF2FF;">🪑</div>
+      <div class="photo-tertiary" style="background:#F2EDFF;">
+        🔌
+        <div class="photo-count-overlay">+photos</div>
+      </div>
+    </div>
+
+    <!-- PAGE BODY -->
+    <div class="page-body">
+
+      <!-- LEFT COLUMN -->
+      <div class="left-col">
+
+        <!-- Header -->
+        <div class="section-card">
+          <span class="spot-type-pill" id="spot-type-pill">☕ Coffee shop</span>
+          <div class="spot-name"    id="spot-name">Loading...</div>
+          <div class="spot-address" id="spot-address">Loading...</div>
+
+          <div class="spot-meta-row">
+            <div class="spot-meta-item"><div class="dot"></div><span class="open-now">Open now</span></div>
+            <div class="spot-meta-item" id="spot-checkins">0 check-ins</div>
+            <div class="spot-meta-item" id="spot-rating">—</div>
+          </div>
+
+          <!-- Admin quick actions — only shown to admins -->
+          <div id="admin-quick-bar" style="display:none;background:#1A2E0F;border-radius:12px;padding:10px 16px;margin-bottom:12px;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:14px;">🔧</span>
+              <span style="font-size:12px;font-weight:500;color:#9FD084;">Admin</span>
+              <span style="font-size:12px;color:#5A7A4A;" id="admin-spot-status"></span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="adminHideSpot()" id="admin-hide-btn"
+                style="background:#E24B4A;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+                Hide spot
+              </button>
+              <button onclick="adminMakeLive()" id="admin-live-btn"
+                style="background:#93CF79;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+                Make live
+              </button>
+              <button onclick="adminFixCoords()"
+                style="background:rgba(255,255,255,0.1);color:#9FD084;border:1px solid rgba(147,207,121,0.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+                📍 Fix coordinates
+              </button>
+              <button onclick="adminFixCity()"
+                style="background:rgba(255,255,255,0.1);color:#9FD084;border:1px solid rgba(147,207,121,0.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+                🏙️ Fix city
+              </button>
+              <a id="admin-dashboard-link" href="worklocal_admin.html"
+                style="background:rgba(255,255,255,0.1);color:#9FD084;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;text-decoration:none;display:inline-flex;align-items:center;">
+                Admin panel →
+              </a>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="action-btn primary" onclick="goCheckin()">Check in here</button>
+            <button class="action-btn" onclick="saveSpot()">Save spot</button>
+            <button class="action-btn" id="directions-btn">Get directions</button>
+          </div>
+        </div>
+
+        <!-- Nomad score breakdown -->
+        <div class="section-card">
+          <div class="section-title">Nomad score breakdown</div>
+          <div class="score-breakdown" id="score-breakdown">
+            <!-- Populated by JS -->
+          </div>
+          <div class="score-footnote" id="score-footnote">Based on community check-ins</div>
+        </div>
+
+        <!-- Wifi stats -->
+        <div class="section-card" id="wifi-section">
+          <div class="section-title">Wifi stats</div>
+          <div class="wifi-stats">
+            <div class="wifi-stat"><div class="wifi-stat-val" id="wifi-download">—</div><div class="wifi-stat-unit">Mbps download</div></div>
+            <div class="wifi-stat"><div class="wifi-stat-val" id="wifi-upload">—</div><div class="wifi-stat-unit">Mbps upload</div></div>
+            <div class="wifi-stat"><div class="wifi-stat-val" id="wifi-ping">—</div><div class="wifi-stat-unit">Avg ping</div></div>
+          </div>
+          <div class="wifi-note" id="wifi-note">No speed tests logged yet — be the first to check in!</div>
+        </div>
+
+        <!-- Amenities -->
+        <div class="section-card">
+          <div class="section-title">Amenities</div>
+          <div class="amenity-grid" id="amenity-grid">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Reviews -->
+        <div class="section-card">
+          <div class="section-title">Reviews</div>
+
+          <!-- External sources -->
+          <div class="ext-reviews" id="ext-reviews">
+            <!-- Populated by JS -->
+          </div>
+
+          <!-- WorkLocal reviews -->
+          <div style="font-size:13px;font-weight:500;margin-bottom:12px;color:#222;">From nomads who worked here</div>
+          <div class="review-list" id="review-list">
+            <div class="empty-reviews">No reviews yet — be the first to check in and leave one!</div>
+          </div>
+
+          <div class="write-review-cta">
+            <div>
+              <div class="write-review-text">Worked here recently?</div>
+              <div class="write-review-sub">Check in and leave a review — your wifi test helps every nomad who comes after you.</div>
+            </div>
+            <button class="action-btn primary" onclick="goCheckin()">Check in ↗</button>
+          </div>
+        </div>
+
+        <!-- Hours -->
+        <div class="section-card">
+          <div class="section-title">Hours</div>
+          <div class="hours-grid" id="hours-grid">
+            <div class="hours-day">Hours</div>
+            <div class="hours-time" id="hours-text">Not listed</div>
+            <div></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="right-col">
+
+        <!-- Score hero -->
+        <div class="score-hero">
+          <div class="score-hero-num"   id="score-num">—</div>
+          <div class="score-hero-label">WorkLocal nomad score</div>
+          <div class="score-grade"      id="score-grade">Loading...</div>
+          <div class="score-hero-divider"></div>
+          <div class="score-hero-stats">
+            <div><div class="score-hero-stat-val" id="stat-checkins">0</div><div class="score-hero-stat-lbl">Check-ins</div></div>
+            <div><div class="score-hero-stat-val" id="stat-wifi">—</div><div class="score-hero-stat-lbl">Mbps avg</div></div>
+            <div><div class="score-hero-stat-val" id="stat-rating">—</div><div class="score-hero-stat-lbl">Google rating</div></div>
+            <div><div class="score-hero-stat-val" id="stat-reviews">0</div><div class="score-hero-stat-lbl">Reviews</div></div>
+          </div>
+        </div>
+
+        <!-- Check in card -->
+        <div class="checkin-card">
+          <div class="checkin-title">Working here right now?</div>
+          <div class="checkin-sub">Check in to run a free wifi test and earn +25 nomad points.</div>
+          <button class="checkin-btn" onclick="goCheckin()">Check in here</button>
+          <button class="checkin-btn-ghost" onclick="goCheckin()">Just leave a review</button>
+        </div>
+
+        <!-- Nomad tip -->
+        <div class="tip-card" id="tip-card" style="display:none;">
+          <div class="tip-label">Nomad tip</div>
+          <div class="tip-text" id="tip-text"></div>
+        </div>
+
+        <!-- Partner perk -->
+        <div class="partner-card" id="partner-card" style="display:none;">
+          <div class="partner-icon" id="partner-icon">☕</div>
+          <div>
+            <div class="partner-title">WorkLocal partner spot</div>
+            <div class="partner-sub">Redeem 500 nomad points for a free drink here</div>
+          </div>
+          <button class="partner-btn" onclick="alert('Rewards coming soon!')">Redeem</button>
+        </div>
+
+        <!-- Mini map -->
+        <div class="map-card">
+          <div class="map-card-img" id="map-link" onclick="openGoogleMaps()">📍 View on map ↗</div>
+          <div class="map-card-body">
+            <div class="map-card-address" id="map-address">Loading...</div>
+            <div class="map-card-links">
+              <a class="map-card-link" id="google-maps-link" href="#" target="_blank">Google Maps</a>
+              <a class="map-card-link" id="apple-maps-link"  href="#" target="_blank">Apple Maps</a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ============================================================
+       READ SPOT ID FROM URL
+       e.g. worklocal_spot_detail.html?id=42
+    ============================================================ */
+    const urlParams = new URLSearchParams(window.location.search);
+    const SPOT_ID   = urlParams.get('id');
+
+    const TYPE_ICON  = { coffee:'☕', brewery:'🍺', winery:'🍷', cowork:'🏢', bakery:'🥐', other:'✨' };
+    const TYPE_LABEL = { coffee:'Coffee shop', brewery:'Brewery', winery:'Winery', cowork:'Co-working space', bakery:'Bakery', other:'Local spot' };
+    const TYPE_BG    = { coffee:'#D5EFCA', brewery:'#C0D8FF', winery:'#E8DAFF', cowork:'#C0D8FF', bakery:'#FAEEDA', other:'#E8E0FF' };
+
+    let currentSpot = null;
+
+    /* ============================================================
+       LOAD SPOT FROM SUPABASE
+    ============================================================ */
+    async function loadSpot() {
+      // No ID in URL — show error
+      if (!SPOT_ID) {
+        showError();
+        return;
+      }
+
+      try {
+        const client = WLAuth.getClient();
+
+        if (!client) {
+          // No Supabase — show demo content
+          showDemoSpot();
+          return;
+        }
+
+        // Fetch the spot
+        const { data: spot, error } = await client
+          .from('spots')
+          .select('*')
+          .eq('id', SPOT_ID)
+          .single();
+
+        if (error || !spot) {
+          showError();
+          return;
+        }
+
+        currentSpot = spot;
+
+        // Fetch reviews for this spot
+        const { data: reviews } = await client
+          .from('reviews')
+          .select('*, users(name)')
+          .eq('spot_id', SPOT_ID)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        // Fetch check-in stats
+        const { data: checkins } = await client
+          .from('checkins')
+          .select('wifi_download, wifi_upload, wifi_ping')
+          .eq('spot_id', SPOT_ID);
+
+        renderSpot(spot, reviews || [], checkins || []);
+      initAdminBar(spot);
+
+      } catch (err) {
+        console.error('Error loading spot:', err);
+        showError();
+      }
+    }
+
+    /* ============================================================
+       RENDER SPOT
+    ============================================================ */
+    function renderSpot(spot, reviews, checkins) {
+      const icon  = TYPE_ICON[spot.type]  || '📍';
+      const label = TYPE_LABEL[spot.type] || 'Local spot';
+      const bg    = TYPE_BG[spot.type]    || '#D5EFCA';
+
+      // Update page title
+      document.title = spot.name + ' — WorkLocal';
+
+      // Breadcrumb
+      document.getElementById('bc-city').textContent = spot.city + (spot.state ? ', ' + spot.state : '');
+      document.getElementById('bc-name').textContent = spot.name;
+
+      // Photo hero background
+      document.getElementById('photo-main').style.background = bg;
+      document.getElementById('spot-icon').textContent = icon;
+
+      // Header
+      document.getElementById('spot-type-pill').textContent = icon + ' ' + label;
+      document.getElementById('spot-name').textContent      = spot.name;
+      document.getElementById('spot-address').textContent   = [spot.address, spot.city, spot.state].filter(Boolean).join(', ');
+      document.getElementById('spot-checkins').textContent  = (spot.checkin_count || 0) + ' check-ins';
+      document.getElementById('spot-rating').textContent    = spot.google_rating ? '★ ' + spot.google_rating + ' Google' : '';
+
+      // Directions button
+      const query = encodeURIComponent(spot.name + ' ' + (spot.address||'') + ' ' + (spot.city||''));
+      document.getElementById('directions-btn').onclick = () =>
+        window.open('https://maps.google.com/?q=' + query, '_blank');
+
+      // Score
+      const score = spot.nomad_score || 0;
+      document.getElementById('score-num').textContent   = score || '—';
+      document.getElementById('score-grade').textContent = gradeLabel(score);
+      document.getElementById('stat-checkins').textContent = spot.checkin_count || 0;
+      document.getElementById('stat-wifi').textContent     = spot.wifi_avg_speed ? Math.round(spot.wifi_avg_speed) : '—';
+      document.getElementById('stat-rating').textContent   = spot.google_rating || '—';
+      document.getElementById('stat-reviews').textContent  = reviews.length;
+
+      // Score breakdown bars
+      renderScoreBreakdown(spot, checkins);
+
+      // Wifi stats from check-ins
+      if (checkins.length > 0) {
+        const avgDl   = avg(checkins.map(c => c.wifi_download).filter(Boolean));
+        const avgUl   = avg(checkins.map(c => c.wifi_upload).filter(Boolean));
+        const avgPing = avg(checkins.map(c => c.wifi_ping).filter(Boolean));
+        document.getElementById('wifi-download').textContent = avgDl   ? Math.round(avgDl)   : '—';
+        document.getElementById('wifi-upload').textContent   = avgUl   ? Math.round(avgUl)   : '—';
+        document.getElementById('wifi-ping').textContent     = avgPing ? Math.round(avgPing) + 'ms' : '—';
+        document.getElementById('wifi-note').textContent =
+          checkins.length + ' speed test' + (checkins.length !== 1 ? 's' : '') + ' logged · ' +
+          (spot.wifi_status === 'free' ? 'Password-free wifi' : 'Wifi available');
+      }
+
+      // Amenities
+      renderAmenities(spot);
+
+      // External reviews
+      renderExternalReviews(spot);
+
+      // WorkLocal reviews
+      renderReviews(reviews);
+
+      // Hours
+      if (spot.hours) {
+        document.getElementById('hours-text').textContent = spot.hours;
+      }
+
+      // Map links
+      document.getElementById('map-address').textContent = [spot.address, spot.city, spot.state].filter(Boolean).join(', ');
+      document.getElementById('google-maps-link').href = 'https://maps.google.com/?q=' + query;
+      document.getElementById('apple-maps-link').href  = 'https://maps.apple.com/?q=' + query;
+
+      // Partner badge
+      if (spot.partner) {
+        document.getElementById('partner-card').style.display = 'flex';
+        document.getElementById('partner-icon').textContent = icon;
+      }
+
+      // Show content, hide loading
+      document.getElementById('page-loading').style.display = 'none';
+      document.getElementById('spot-content').style.display = 'block';
+    }
+
+    function gradeLabel(score) {
+      if (score >= 90) return 'Excellent for nomads';
+      if (score >= 80) return 'Great for nomads';
+      if (score >= 70) return 'Good for nomads';
+      if (score >= 55) return 'Decent — check details';
+      if (score > 0)   return 'Limited info yet';
+      return 'New listing';
+    }
+
+    function avg(arr) {
+      if (!arr.length) return 0;
+      return arr.reduce((a,b) => a+b, 0) / arr.length;
+    }
+
+    function renderScoreBreakdown(spot, checkins) {
+      const wifiScore     = spot.wifi_avg_speed ? Math.min(100, Math.round(spot.wifi_avg_speed / 2)) : 0;
+      const outletScore   = { plenty:90, some:65, few:35, none:10, unknown:0 }[spot.outlets] || 0;
+      const noiseScore    = { quiet:95, moderate:65, lively:45, loud:20, unknown:0 }[spot.noise_level] || 0;
+      const friendlyScore = { welcome:98, neutral:65, limit:30, banned:0, unknown:0 }[spot.laptop_friendly] || 0;
+      const googleScore   = spot.google_rating ? Math.round((spot.google_rating / 5) * 100) : 0;
+
+      const items = [
+        { label:'Wifi reliability',    val: wifiScore,     pct: wifiScore },
+        { label:'Nomad friendliness',  val: friendlyScore, pct: friendlyScore },
+        { label:'Outlet availability', val: outletScore,   pct: outletScore },
+        { label:'Drink quality',       val: googleScore,   pct: googleScore },
+        { label:'Noise level',         val: noiseScore,    pct: noiseScore },
+        { label:'Check-in count',      val: Math.min(100, (spot.checkin_count||0)*2), pct: Math.min(100, (spot.checkin_count||0)*2) },
+      ];
+
+      document.getElementById('score-breakdown').innerHTML = items.map(item => `
+        <div class="score-item">
+          <div class="score-item-top">
+            <span class="score-item-label">${item.label}</span>
+            <span class="score-item-val">${item.val || '—'}</span>
+          </div>
+          <div class="score-bar-track">
+            <div class="score-bar-fill ${item.pct < 50 ? 'mid' : ''}" style="width:${item.pct}%"></div>
+          </div>
+        </div>`).join('');
+
+      document.getElementById('score-footnote').textContent =
+        `Based on ${spot.checkin_count || 0} nomad check-in${spot.checkin_count !== 1 ? 's' : ''} + community reviews`;
+    }
+
+    function renderAmenities(spot) {
+      const amenities = [
+        { label:'Free wifi',        status: spot.wifi_status === 'free' ? 'yes' : spot.wifi_status === 'none' ? 'no' : 'partial' },
+        { label:'Outlets',          status: spot.outlets === 'plenty' ? 'yes' : spot.outlets === 'none' ? 'no' : spot.outlets === 'some' ? 'partial' : 'unknown' },
+        { label:'Indoor seating',   status: 'yes' },
+        { label:'Outdoor seating',  status: spot.outdoor_seating ? 'yes' : 'unknown' },
+        { label:'Food available',   status: spot.has_food ? 'yes' : 'unknown' },
+        { label:'Dog friendly',     status: spot.dog_friendly ? 'yes' : 'unknown' },
+        { label:'ADA accessible',   status: spot.ada_accessible ? 'yes' : 'unknown' },
+        { label:'Natural light',    status: spot.natural_light ? 'yes' : 'unknown' },
+      ];
+
+      document.getElementById('amenity-grid').innerHTML = amenities.map(a => `
+        <div class="amenity-row">
+          <div class="amenity-dot ${a.status}"></div>
+          <span style="${a.status === 'unknown' || a.status === 'no' ? 'color:#BBB' : ''}">${a.label}</span>
+        </div>`).join('');
+    }
+
+    function renderExternalReviews(spot) {
+      const stars = r => '★'.repeat(Math.round(r||0)) + '☆'.repeat(5-Math.round(r||0));
+      const query = encodeURIComponent(spot.name + ' ' + (spot.city||''));
+
+      let html = '';
+
+      if (spot.google_rating) {
+        html += `
+          <div class="ext-card">
+            <div class="ext-header">
+              <div class="ext-logo" style="background:#E8F0FE;">🔵</div>
+              <div><div class="ext-name">Google</div><div class="ext-rating">${spot.google_rating} · ${spot.google_reviews||0} reviews</div></div>
+            </div>
+            <div class="ext-stars">${stars(spot.google_rating)}</div>
+            <button class="ext-link-btn" onclick="window.open('https://maps.google.com/?q=${query}','_blank')">
+              <span>View on Google Maps</span><span>↗</span>
+            </button>
+          </div>`;
+      }
+
+      if (spot.yelp_rating) {
+        html += `
+          <div class="ext-card">
+            <div class="ext-header">
+              <div class="ext-logo" style="background:#FFE8E8;">🔴</div>
+              <div><div class="ext-name">Yelp</div><div class="ext-rating">${spot.yelp_rating} · ${spot.yelp_reviews||0} reviews</div></div>
+            </div>
+            <div class="ext-stars">${stars(spot.yelp_rating)}</div>
+            <button class="ext-link-btn" onclick="window.open('https://yelp.com/search?find_desc=${query}','_blank')">
+              <span>View on Yelp</span><span>↗</span>
+            </button>
+          </div>`;
+      }
+
+      if (!html) {
+        html = `
+          <div class="ext-card">
+            <div class="ext-header">
+              <div class="ext-logo" style="background:#E8F0FE;">🔵</div>
+              <div><div class="ext-name">Google</div><div class="ext-rating">View reviews</div></div>
+            </div>
+            <button class="ext-link-btn" onclick="window.open('https://maps.google.com/?q=${query}','_blank')">
+              <span>View on Google Maps</span><span>↗</span>
+            </button>
+          </div>
+          <div class="ext-card">
+            <div class="ext-header">
+              <div class="ext-logo" style="background:#FFE8E8;">🔴</div>
+              <div><div class="ext-name">Yelp</div><div class="ext-rating">View reviews</div></div>
+            </div>
+            <button class="ext-link-btn" onclick="window.open('https://yelp.com/search?find_desc=${query}','_blank')">
+              <span>View on Yelp</span><span>↗</span>
+            </button>
+          </div>`;
+      }
+
+      document.getElementById('ext-reviews').innerHTML = html;
+    }
+
+    function renderReviews(reviews) {
+      if (!reviews.length) return;
+
+      const colors     = ['#E2F5D6','#EAF2FF','#F2EDFF','#FAEEDA','#FCEBEB'];
+      const textColors = ['#3A6B28','#2A4EA0','#6040AA','#854F0B','#791F1F'];
+
+      document.getElementById('review-list').innerHTML = reviews.map((r, i) => {
+        const name      = r.users?.name || 'Nomad';
+        const initials  = name.trim().split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2) || '?';
+        const date      = new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const ci        = i % colors.length;
+        const isFlagged = r.is_flagged || false;
+        const helpful   = r.helpful   || 0;
+
+        return `
+          <div class="review-item" id="review-${r.id}">
+            <div class="review-header">
+              <div class="review-author-row">
+                <div class="review-avatar" style="background:${colors[ci]};color:${textColors[ci]}">${initials}</div>
+                <div>
+                  <div class="review-author">${name}</div>
+                  <div class="review-date">Checked in · ${date}</div>
+                </div>
+              </div>
+              <div class="verified-badge"><div class="verified-dot"></div>Verified check-in</div>
+            </div>
+            <div class="review-stars">★★★★★</div>
+            <div class="review-text">${r.body}</div>
+            <div class="review-actions">
+              <button class="helpful-btn"
+                id="helpful-${r.id}"
+                onclick="markHelpful(${r.id}, this)">
+                👍 Helpful${helpful > 0 ? ' · ' + helpful : ''}
+              </button>
+              <button class="flag-btn ${isFlagged ? 'flagged' : ''}"
+                id="flag-${r.id}"
+                onclick="flagReview(${r.id}, this)"
+                title="${isFlagged ? 'Already reported' : 'Report this review'}">
+                ${isFlagged ? '🚩 Reported' : '🚩 Report'}
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ============================================================
+       HELPFUL — increments helpful count on a review
+    ============================================================ */
+    async function markHelpful(reviewId, btn) {
+      // Optimistic UI update
+      btn.textContent = '👍 Helpful · ✓';
+      btn.disabled    = true;
+      btn.style.color = '#3A6B28';
+      btn.style.borderColor = '#AAD990';
+
+      try {
+        const client = WLAuth.getClient();
+        if (!client) return;
+
+        // Increment helpful count
+        const { data: review } = await client
+          .from('reviews').select('helpful').eq('id', reviewId).single();
+
+        await client.from('reviews')
+          .update({ helpful: (review?.helpful || 0) + 1 })
+          .eq('id', reviewId);
+
+      } catch (err) {
+        console.error('Helpful error:', err);
+      }
+    }
+
+    /* ============================================================
+       FLAG REVIEW — marks a review for admin review
+    ============================================================ */
+    async function flagReview(reviewId, btn) {
+      if (btn.classList.contains('flagged')) return; // already flagged
+
+      // Confirm before flagging
+      if (!confirm('Report this review as inappropriate or spam?')) return;
+
+      // Optimistic UI
+      btn.textContent = '🚩 Reported';
+      btn.classList.add('flagged');
+      btn.disabled = true;
+
+      try {
+        const client = WLAuth.getClient();
+        if (!client) {
+          showFlagToast();
+          return;
+        }
+
+        const { error } = await client
+          .from('reviews')
+          .update({ is_flagged: true })
+          .eq('id', reviewId);
+
+        if (error) throw error;
+
+        showFlagToast();
+
+      } catch (err) {
+        console.error('Flag error:', err);
+        // Still show success to user — they did the right thing
+        showFlagToast();
+      }
+    }
+
+    function showFlagToast() {
+      // Show a small toast notification
+      const toast = document.createElement('div');
+      toast.textContent = 'Review reported — our team will take a look. Thanks!';
+      toast.style.cssText = `
+        position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+        background:#222; color:#fff; border-radius:20px;
+        padding:10px 22px; font-size:13px; font-weight:500;
+        z-index:9999; font-family:'DM Sans',sans-serif;
+        box-shadow:0 4px 16px rgba(0,0,0,0.2);
+        animation: fadeInUp 0.3s ease;
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    function openGoogleMaps() {
+      if (currentSpot) {
+        const q = encodeURIComponent(currentSpot.name + ' ' + (currentSpot.city||''));
+        window.open('https://maps.google.com/?q=' + q, '_blank');
+      }
+    }
+
+    /* ── FIX COORDINATES MODAL ── */
+    function adminFixCoords() {
+      // Pre-fill with current coords if available
+      var latEl = document.getElementById('fix-lat');
+      var lngEl = document.getElementById('fix-lng');
+      if (latEl && spot && spot.lat) latEl.value = spot.lat;
+      if (lngEl && spot && spot.lng) lngEl.value = spot.lng;
+      document.getElementById('fix-coords-error').style.display = 'none';
+      document.getElementById('fix-coords-modal').style.display = 'flex';
+    }
+
+    function closeFixCoords() {
+      document.getElementById('fix-coords-modal').style.display = 'none';
+    }
+
+    function adminFixCity() {
+      var cityEl  = document.getElementById('fix-city-input');
+      var stateEl = document.getElementById('fix-state-input');
+      var currEl  = document.getElementById('fix-city-current');
+      if (cityEl)  cityEl.value  = spot ? (spot.city  || '') : '';
+      if (stateEl) stateEl.value = spot ? (spot.state || '') : '';
+      if (currEl)  currEl.textContent = 'Current: ' + (spot ? spot.city + ', ' + spot.state : '');
+      document.getElementById('fix-city-error').style.display = 'none';
+      document.getElementById('fix-city-modal').style.display = 'flex';
+    }
+
+    function closeFixCity() {
+      document.getElementById('fix-city-modal').style.display = 'none';
+    }
+
+    async function saveFixCity() {
+      var cityVal  = document.getElementById('fix-city-input').value.trim();
+      var stateVal = document.getElementById('fix-state-input').value.trim().toUpperCase();
+      var errEl    = document.getElementById('fix-city-error');
+      var btn      = document.getElementById('fix-city-save-btn');
+      errEl.style.display = 'none';
+
+      if (!cityVal)  { errEl.textContent = 'Please enter a city name.'; errEl.style.display = 'block'; return; }
+      if (!stateVal) { errEl.textContent = 'Please enter a state (e.g. TX).'; errEl.style.display = 'block'; return; }
+      if (stateVal.length !== 2) { errEl.textContent = 'State should be a 2-letter code (e.g. TX, TN, CO).'; errEl.style.display = 'block'; return; }
+
+      btn.textContent = 'Saving...';
+      btn.disabled    = true;
+
+      try {
+        var client = WLAuth.getClient();
+        var { error } = await client.from('spots')
+          .update({ city: cityVal, state: stateVal })
+          .eq('id', SPOT_ID);
+
+        if (error) throw error;
+
+        // Update local spot object
+        spot.city  = cityVal;
+        spot.state = stateVal;
+
+        // Update displayed city on page
+        var cityDisplay = document.getElementById('spot-city');
+        if (cityDisplay) cityDisplay.textContent = cityVal + ', ' + stateVal;
+
+        closeFixCity();
+        showToast('City updated ✓');
+
+      } catch(e) {
+        errEl.textContent = 'Error: ' + e.message;
+        errEl.style.display = 'block';
+        btn.textContent = 'Save city';
+        btn.disabled    = false;
+      }
+    }
+
+    // Wire up backdrop click once DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      var modal = document.getElementById('fix-coords-modal');
+      if (modal) modal.addEventListener('click', function(e) {
+        if (e.target === this) closeFixCoords();
+      });
+      var cityModal = document.getElementById('fix-city-modal');
+      if (cityModal) cityModal.addEventListener('click', function(e) {
+        if (e.target === this) closeFixCity();
+      });
+    });
+
+    async function saveFixCoords() {
+      var latVal = document.getElementById('fix-lat').value.trim();
+      var lngVal = document.getElementById('fix-lng').value.trim();
+      var errEl  = document.getElementById('fix-coords-error');
+      var btn    = document.getElementById('fix-coords-save-btn');
+      errEl.style.display = 'none';
+
+      var lat = parseFloat(latVal);
+      var lng = parseFloat(lngVal);
+
+      if (isNaN(lat) || isNaN(lng)) {
+        errEl.textContent = 'Please enter valid numbers for both fields.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      // Warn if outside Texas but allow saving
+      if (lat < 25 || lat > 37 || lng < -107 || lng > -93) {
+        errEl.style.background = '#FAEEDA';
+        errEl.style.color = '#854F0B';
+        errEl.textContent = '⚠️ These coordinates look outside Texas — double-check before saving.';
+        errEl.style.display = 'block';
+        // Don't block — let them save anyway in case it's intentional
+      }
+
+      btn.textContent = 'Saving...';
+      btn.disabled    = true;
+
+      try {
+        var client = WLAuth.getClient();
+        var { error } = await client.from('spots')
+          .update({ lat: lat, lng: lng })
+          .eq('id', SPOT_ID);
+
+        if (error) throw error;
+
+        // Update local spot object
+        spot.lat = lat;
+        spot.lng = lng;
+
+        closeFixCoords();
+        showToast('Coordinates updated ✓');
+
+      } catch(e) {
+        errEl.style.background = '#FCEBEB';
+        errEl.style.color = '#791F1F';
+        errEl.textContent = 'Error: ' + e.message;
+        errEl.style.display = 'block';
+        btn.textContent = 'Save coordinates';
+        btn.disabled    = false;
+      }
+    }
+
+    /* ── ADMIN QUICK ACTIONS ── */
+    async function initAdminBar(spot) {
+      const client = WLAuth.getClient();
+      if (!client) return;
+
+      const { data: { user } } = await client.auth.getUser();
+      if (!user || !WLAuth.isAdmin(user)) return;
+
+      // Show admin bar
+      const bar = document.getElementById('admin-quick-bar');
+      if (bar) bar.style.display = 'flex';
+
+      // Show current status
+      const statusEl = document.getElementById('admin-spot-status');
+      if (statusEl) {
+        statusEl.textContent = '· ' + (spot.status || 'live');
+        statusEl.style.color = spot.status === 'hidden' ? '#E24B4A' : '#93CF79';
+      }
+
+      // Show/hide buttons based on current status
+      const hideBtn = document.getElementById('admin-hide-btn');
+      const liveBtn = document.getElementById('admin-live-btn');
+      if (hideBtn) hideBtn.style.display = spot.status === 'hidden' ? 'none' : 'inline-block';
+      if (liveBtn) liveBtn.style.display = spot.status === 'live' ? 'none' : 'inline-block';
+    }
+
+    async function adminHideSpot() {
+      const client = WLAuth.getClient();
+      if (!client) return;
+      const btn = document.getElementById('admin-hide-btn');
+      btn.textContent = 'Hiding...'; btn.disabled = true;
+
+      const { error } = await client.from('spots').update({ status: 'hidden' }).eq('id', SPOT_ID);
+      if (error) { alert('Error: ' + error.message); btn.textContent = 'Hide spot'; btn.disabled = false; return; }
+
+      btn.style.display = 'none';
+      document.getElementById('admin-live-btn').style.display = 'inline-block';
+      const statusEl = document.getElementById('admin-spot-status');
+      if (statusEl) { statusEl.textContent = '· hidden'; statusEl.style.color = '#E24B4A'; }
+
+      showToast('Spot hidden from map ✓');
+    }
+
+    async function adminMakeLive() {
+      const client = WLAuth.getClient();
+      if (!client) return;
+      const btn = document.getElementById('admin-live-btn');
+      btn.textContent = 'Publishing...'; btn.disabled = true;
+
+      const { error } = await client.from('spots').update({ status: 'live' }).eq('id', SPOT_ID);
+      if (error) { alert('Error: ' + error.message); btn.textContent = 'Make live'; btn.disabled = false; return; }
+
+      btn.style.display = 'none';
+      document.getElementById('admin-hide-btn').style.display = 'inline-block';
+      const statusEl = document.getElementById('admin-spot-status');
+      if (statusEl) { statusEl.textContent = '· live'; statusEl.style.color = '#93CF79'; }
+
+      showToast('Spot is now live ✓');
+    }
+
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'toast';
+        t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#222;color:#fff;border-radius:20px;padding:10px 22px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.opacity = '1';
+      setTimeout(function() { t.style.opacity = '0'; }, 2500);
+    }
+
+    async function goCheckin() {
+      const client = WLAuth.getClient();
+      if (client) {
+        const { data: { user } } = await client.auth.getUser();
+        if (!user) {
+          // Not logged in — show auth modal then redirect to checkin after
+          WLAuth.showAuthModal();
+          // Listen for sign in and redirect
+          client.auth.onAuthStateChange((event) => {
+            if (event === 'SIGNED_IN') {
+              window.location.href = 'worklocal_checkin.html?id=' + SPOT_ID;
+            }
+          });
+          return;
+        }
+      }
+      window.location.href = 'worklocal_checkin.html?id=' + SPOT_ID;
+    }
+
+    async function saveSpot() {
+      const client = WLAuth.getClient();
+      if (client) {
+        const { data: { user } } = await client.auth.getUser();
+        if (!user) { WLAuth.showAuthModal(); return; }
+      }
+      alert('Save feature coming soon!');
+    }
+
+    /* ============================================================
+       DEMO FALLBACK — shown when no Supabase or no ID
+    ============================================================ */
+    function showDemoSpot() {
+      const demo = {
+        id: 0, name:'Epoch Coffee', type:'coffee',
+        address:'2700 Anderson Ln', city:'Austin', state:'TX',
+        nomad_score:94, checkin_count:412, wifi_avg_speed:87,
+        google_rating:4.6, google_reviews:312,
+        wifi_status:'free', outlets:'plenty', noise_level:'moderate',
+        laptop_friendly:'welcome', has_food:true, dog_friendly:true,
+        ada_accessible:true, natural_light:true, outdoor_seating:true,
+        hours:'Mon–Fri 6:30am–11pm · Sat–Sun 7am–11pm',
+      };
+      currentSpot = demo;
+      renderSpot(demo, [], []);
+    }
+
+    function showError() {
+      document.getElementById('page-loading').style.display = 'none';
+      document.getElementById('page-error').style.display   = 'flex';
+    }
+
+    /* ============================================================
+       INIT
+    ============================================================ */
+    window.addEventListener('load', loadSpot);
+  </script>
+<!-- FIX COORDINATES MODAL -->
+<div id="fix-coords-modal" style="
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.5);z-index:9999;
+  align-items:center;justify-content:center;
+">
+  <div style="background:#fff;border-radius:20px;padding:28px;width:100%;max-width:420px;margin:20px;">
+    <div style="font-family:'Coiny',cursive;font-size:24px;color:#1A2E0F;margin-bottom:6px;">Fix coordinates</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.6;">
+      Enter the correct lat/lng for this spot.<br>
+      💡 Open <a href="https://maps.google.com" target="_blank" style="color:#3A6B28;">Google Maps</a>, find the spot, right-click it, and the coordinates appear at the top of the menu.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#999;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">Latitude</div>
+        <input id="fix-lat" type="text" placeholder="e.g. 30.2672"
+          style="width:100%;border:1.5px solid #E8E8E8;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;"/>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#999;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">Longitude</div>
+        <input id="fix-lng" type="text" placeholder="e.g. -97.7431"
+          style="width:100%;border:1.5px solid #E8E8E8;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;"/>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:#BBB;margin-bottom:8px;">Texas coordinates should be around lat 29-33, lng -94 to -106</div>
+
+    <div id="fix-coords-error" style="display:none;background:#FCEBEB;color:#791F1F;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;"></div>
+
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeFixCoords()"
+        style="flex:1;background:#F5F5F5;color:#555;border:none;border-radius:10px;padding:11px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        Cancel
+      </button>
+      <button onclick="saveFixCoords()" id="fix-coords-save-btn"
+        style="flex:2;background:#3A6B28;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        Save coordinates
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FIX CITY MODAL -->
+<div id="fix-city-modal" style="
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.5);z-index:9999;
+  align-items:center;justify-content:center;
+">
+  <div style="background:#fff;border-radius:20px;padding:28px;width:100%;max-width:420px;margin:20px;">
+    <div style="font-family:'Coiny',cursive;font-size:24px;color:#1A2E0F;margin-bottom:6px;">Fix city &amp; state</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.6;">
+      Update the city name and state for this spot if they're incorrect.
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 80px;gap:12px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#999;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">City</div>
+        <input id="fix-city-input" type="text" placeholder="e.g. Austin"
+          style="width:100%;border:1.5px solid #E8E8E8;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.12s;"/>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:500;color:#999;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:5px;">State</div>
+        <input id="fix-state-input" type="text" placeholder="TX" maxlength="2"
+          style="width:100%;border:1.5px solid #E8E8E8;border-radius:10px;padding:10px 12px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;text-transform:uppercase;transition:border-color 0.12s;"/>
+      </div>
+    </div>
+
+    <div id="fix-city-current" style="font-size:12px;color:#BBB;margin-bottom:12px;"></div>
+    <div id="fix-city-error" style="display:none;background:#FCEBEB;color:#791F1F;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;"></div>
+
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeFixCity()"
+        style="flex:1;background:#F5F5F5;color:#555;border:none;border-radius:10px;padding:11px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        Cancel
+      </button>
+      <button onclick="saveFixCity()" id="fix-city-save-btn"
+        style="flex:2;background:#3A6B28;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        Save city
+      </button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
