@@ -315,7 +315,12 @@
     let activeFilters = new Set();
     let sortBy       = 'score';
     let markers      = {};
-    let mapCenter    = { lat: 30.2672, lng: -97.7431, label: 'Austin, TX' };
+    // Start at last known position if available, otherwise Austin
+var _savedPos = null;
+try { _savedPos = JSON.parse(localStorage.getItem('wl_last_position')); } catch(e) {}
+let mapCenter = _savedPos && _savedPos.lat ? 
+  { lat: _savedPos.lat, lng: _savedPos.lng, label: _savedPos.label || '' } :
+  { lat: 30.2672, lng: -97.7431, label: 'Austin, TX' };
 
     /* ============================================================
        MAP — Free OpenStreetMap tiles, no API key needed
@@ -1001,6 +1006,20 @@
       // Check if coming back from a spot detail page
       if (restoreMapState()) return;
 
+      // Restore last known position from localStorage (survives refresh)
+      var lastPos = localStorage.getItem('wl_last_position');
+      if (lastPos && !window.location.search) {
+        try {
+          var pos = JSON.parse(lastPos);
+          if (pos.lat && pos.lng) {
+            mapCenter = { lat: pos.lat, lng: pos.lng, label: pos.label || '' };
+            map.setView([pos.lat, pos.lng], pos.zoom || 12);
+            applyFilters();
+            return;
+          }
+        } catch(e) {}
+      }
+
       // If lat/lng passed — fly there immediately
       if (!isNaN(lat) && !isNaN(lng) && search) {
         mapCenter = { lat, lng, label: search };
@@ -1030,9 +1049,20 @@
 
     // Reapply filters whenever the map moves or zooms
     // This makes spots update automatically as you pan/zoom
-    // Just refilter visible spots on pan/zoom — no Supabase calls needed
-    map.on('moveend', applyFilters);
-    map.on('zoomend', applyFilters);
+    // Refilter and save position on every pan/zoom
+    function onMapMoved() {
+      applyFilters();
+      // Save current position to localStorage so refresh returns here
+      var center = map.getCenter();
+      localStorage.setItem('wl_last_position', JSON.stringify({
+        lat:   center.lat,
+        lng:   center.lng,
+        zoom:  map.getZoom(),
+        label: mapCenter.label || ''
+      }));
+    }
+    map.on('moveend', onMapMoved);
+    map.on('zoomend', onMapMoved);
   </script>
 </body>
 </html>
