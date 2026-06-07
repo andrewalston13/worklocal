@@ -256,6 +256,7 @@
     <button class="tab-btn" id="btn-rewards"  onclick="showTab('rewards')">Rewards</button>
     <button class="tab-btn" id="btn-checkins" onclick="showTab('checkins')">Check-ins</button>
     <button class="tab-btn" id="btn-photos"   onclick="showTab('photos')">Photos</button>
+    <button class="tab-btn" id="btn-saved"    onclick="showTab('saved')">Saved</button>
   </div>
 </div>
 
@@ -429,6 +430,21 @@
         <div class="empty-icon">📷</div>
         <div class="empty-title">No photos yet!</div>
         <div class="empty-sub">Upload photos from your favourite work spots.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED SPOTS TAB -->
+  <div class="tab-content" id="tab-saved">
+    <div class="card">
+      <div class="card-title">Saved spots</div>
+      <div id="saved-list">
+        <div class="empty">
+          <div class="empty-icon">🔖</div>
+          <div class="empty-title">No saved spots yet!</div>
+          <div class="empty-sub">Hit "Save spot" on any spot page to bookmark it for later.</div>
+          <a class="empty-btn" href="worklocal_map.html">Explore spots →</a>
+        </div>
       </div>
     </div>
   </div>
@@ -634,6 +650,8 @@ async function loadProfile() {
 
   // Load photos
   loadPhotos(user.id);
+  // Load saved spots
+  loadSavedSpots(user.id);
 
   // Load check-ins
   var ciRes = await db.from('checkins').select('*,spots(name,type,city,state,nomad_score)')
@@ -725,6 +743,55 @@ async function uploadPhotos(input) {
     showToast(uploaded + ' photo' + (uploaded > 1 ? 's' : '') + ' uploaded ✓');
     loadPhotos(user.id);
   }
+}
+
+async function loadSavedSpots(userId) {
+  var db = WLAuth.getClient();
+  if (!db) return;
+
+  var listEl = document.getElementById('saved-list');
+  const TYPE_ICON = {coffee:'☕',brewery:'🍺',winery:'🍷',cowork:'🏢',bakery:'🥐',other:'✨'};
+  const TYPE_BG   = {coffee:'#F5F9F2',brewery:'#F2F6FF',cowork:'#F2F6FF',other:'#F5F5FF'};
+
+  try {
+    var { data } = await db.from('saved_spots')
+      .select('id, spot_id, created_at, spots(id, name, type, city, state, nomad_score)')
+      .eq('user_id', userId)
+      .order('created_at', {ascending: false})
+      .limit(50);
+
+    if (!data || data.length === 0) {
+      listEl.innerHTML = '<div class="empty"><div class="empty-icon">🔖</div><div class="empty-title">No saved spots yet!</div><div class="empty-sub">Hit "Save spot" on any spot page to bookmark it for later.</div><a class="empty-btn" href="worklocal_map.html">Explore spots →</a></div>';
+      return;
+    }
+
+    listEl.innerHTML = data.map(function(row) {
+      var s    = row.spots || {};
+      var icon = TYPE_ICON[s.type] || '📍';
+      var bg   = TYPE_BG[s.type]   || '#F7F7F5';
+      var url = 'worklocal_spot_detail.html?id=' + s.id;
+      return '<div class="checkin-card" data-url="' + url + '">' +
+        '<div class="checkin-thumb" style="background:' + bg + '">' + icon + '</div>' +
+        '<div>' +
+          '<div class="checkin-name">' + (s.name || 'Unknown spot') + '</div>' +
+          '<div class="checkin-meta">' + (s.city || '') + (s.state ? ', ' + s.state : '') + '</div>' +
+        '</div>' +
+        '<div class="checkin-right">' +
+          '<div class="checkin-score">' + (s.nomad_score || '?') + '</div>' +
+          '<div class="checkin-date">Saved</div>' +
+        '</div>' +
+        '</div>';
+    }).join('');
+
+  } catch(e) {
+    console.error('Load saved spots error:', e);
+  }
+
+  // Click handler via event delegation
+  listEl.onclick = function(e) {
+    var card = e.target.closest('.checkin-card[data-url]');
+    if (card) window.location.href = card.getAttribute('data-url');
+  };
 }
 
 async function loadPhotos(userId) {

@@ -370,10 +370,6 @@
             <div><div class="score-hero-stat-val" id="stat-reviews">0</div><div class="score-hero-stat-lbl">Reviews</div></div>
           </div>
         </div>
-
-        <!-- Check in card -->
-        <div class="checkin-card">
-          <div class="checkin-title">Working here right now?</div>
           <div class="checkin-sub">Check in to run a free wifi test and earn +25 nomad points.</div>
           <button class="checkin-btn" onclick="goCheckin()">Check in here</button>
           <button class="checkin-btn-ghost" onclick="goCheckin()">Just leave a review</button>
@@ -474,6 +470,7 @@
 
         renderSpot(spot, reviews || [], checkins || []);
       initAdminBar(spot);
+      checkIfSaved();
 
       } catch (err) {
         console.error('Error loading spot:', err);
@@ -932,11 +929,42 @@
 
     async function saveSpot() {
       const client = WLAuth.getClient();
-      if (client) {
-        const { data: { user } } = await client.auth.getUser();
-        if (!user) { WLAuth.showAuthModal(); return; }
+      if (!client) return;
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) { WLAuth.showAuthModal(); return; }
+
+      const saveBtn = document.querySelector('.action-btn[onclick="saveSpot()"]');
+
+      // Check if already saved
+      const { data: existing } = await client.from('saved_spots')
+        .select('id').eq('user_id', user.id).eq('spot_id', SPOT_ID).maybeSingle();
+
+      if (existing) {
+        // Unsave
+        await client.from('saved_spots').delete().eq('id', existing.id);
+        if (saveBtn) saveBtn.textContent = 'Save spot';
+        showToast('Removed from saved spots');
+      } else {
+        // Save
+        const { error } = await client.from('saved_spots')
+          .insert({ user_id: user.id, spot_id: parseInt(SPOT_ID) });
+        if (error) { showToast('Error saving spot'); return; }
+        if (saveBtn) saveBtn.textContent = '✓ Saved';
+        showToast('Spot saved! Find it in your profile.');
       }
-      alert('Save feature coming soon!');
+    }
+
+    async function checkIfSaved() {
+      const client = WLAuth.getClient();
+      if (!client) return;
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) return;
+
+      const { data } = await client.from('saved_spots')
+        .select('id').eq('user_id', user.id).eq('spot_id', SPOT_ID).maybeSingle();
+
+      const saveBtn = document.querySelector('.action-btn[onclick="saveSpot()"]');
+      if (data && saveBtn) saveBtn.textContent = '✓ Saved';
     }
 
     /* ============================================================
